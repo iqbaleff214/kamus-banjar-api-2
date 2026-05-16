@@ -1,25 +1,38 @@
 services:
-  app:
+  api:
     build:
       context: .
       target: prod
     env_file: .env
-    ports:
-      - "${APP_PORT:-3000}:3000"
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: always
+    networks:
+      - traefik_public
+      - internal
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_public"
 
-  postgres:
+      # ── Router ───────────────────────────────────────────────────────────────
+      - "traefik.http.routers.kamus-banjar-api.rule=Host(`${APP_DOMAIN}`)"
+      - "traefik.http.routers.kamus-banjar-api.entrypoints=websecure"
+      - "traefik.http.routers.kamus-banjar-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.kamus-banjar-api.middlewares=security-headers@docker"
+
+      # ── Service (internal port) ───────────────────────────────────────────────
+      - "traefik.http.services.kamus-banjar-api.loadbalancer.server.port=3000"
+
+  db:
     image: postgres:15-alpine
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -33,6 +46,8 @@ services:
       timeout: 5s
       retries: 10
     restart: always
+    networks:
+      - internal
 
   redis:
     image: redis:7-alpine
@@ -45,7 +60,15 @@ services:
       timeout: 5s
       retries: 10
     restart: always
+    networks:
+      - internal
 
 volumes:
   postgres-data:
   redis-data:
+
+networks:
+  traefik_public:
+    external: true
+  internal:
+    internal: true
