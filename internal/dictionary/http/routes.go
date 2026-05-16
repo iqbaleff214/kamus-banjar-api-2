@@ -1,17 +1,28 @@
 package dictionaryhttp
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/ratelimit"
 )
 
-func RegisterRoutes(app *fiber.App, h *Handler) {
+func RegisterRoutes(app *fiber.App, h *Handler, counter ratelimit.Counter) {
 	v2 := app.Group("/api/v2")
 
-	// Public dictionary routes (no auth required)
-	words := v2.Group("/words")
+	// Public dictionary routes — TryAuth so authenticated users get higher limit
+	wordsRL := ratelimit.AdaptiveLimiter(counter, func(c *fiber.Ctx) (string, int) {
+		claims := auth.GetClaims(c)
+		if claims == nil {
+			return "ratelimit:words:ip:" + c.IP(), 60
+		}
+		return "ratelimit:words:user:" + claims.UserID, 120
+	}, time.Minute)
+
+	words := v2.Group("/words", auth.TryAuth(), wordsRL)
 	words.Get("/", h.ListWords)
-	words.Get("/search", h.ListWords) // alias — uses ?q= param
+	words.Get("/search", h.ListWords)
 	words.Get("/:id", h.GetWord)
 	words.Get("/:id/definitions", h.GetDefinitions)
 	words.Get("/:id/examples", h.GetExamples)

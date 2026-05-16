@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
 
@@ -32,11 +31,14 @@ import (
 	moderationcmd "github.com/iqbaleff214/kamus-banjar-api-2/internal/moderation/application/commands"
 	moderationhttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/moderation/http"
 	moderationinfra "github.com/iqbaleff214/kamus-banjar-api-2/internal/moderation/infrastructure/postgres"
+	"github.com/iqbaleff214/kamus-banjar-api-2/internal/docs"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/cache"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/config"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/database"
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/logging"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/mailer"
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/middleware"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/ratelimit"
 )
 
@@ -48,6 +50,7 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
+	logging.Init(cfg.AppEnv)
 	auth.Init(cfg.JWTSecret)
 
 	pool, err := database.Connect(cfg.DSN())
@@ -95,18 +98,21 @@ func main() {
 	})
 
 	app.Use(recover.New())
-	app.Use(logger.New())
+	app.Use(middleware.RequestID())
+	app.Use(logging.RequestLogger())
 
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
-	identityhttp.RegisterRoutes(app, identityHandler)
+	rlCounter := ratelimit.NewRedisCounter(redis)
+
+	identityhttp.RegisterRoutes(app, identityHandler, rlCounter)
 
 	wordRepo := dictinfra.NewPostgresWordRepository(pool)
 	wordQry := dictqry.NewWordQueryService(wordRepo)
 	wordCmd := dictcmd.NewWordCommandService(wordRepo)
-	dicthttp.RegisterRoutes(app, dicthttp.NewHandler(wordQry, wordCmd))
+	dicthttp.RegisterRoutes(app, dicthttp.NewHandler(wordQry, wordCmd), rlCounter)
 
 	contribRepo := communityinfra.NewPostgresContributionRepository(pool)
 	voteRepo := communityinfra.NewPostgresVoteRepository(pool)
@@ -122,7 +128,7 @@ func main() {
 	commentSvc := communitycmd.NewCommentService(commentRepo, wordChecker)
 
 	communityHandler := communityhttp.NewHandler(contribSvc, voteSvc, bookmarkSvc, commentSvc)
-	communityhttp.RegisterRoutes(app, communityHandler, ratelimit.NewRedisCounter(redis))
+	communityhttp.RegisterRoutes(app, communityHandler, rlCounter)
 
 	modRepo := moderationinfra.NewPostgresModerationRepository(pool)
 	moderationSvc := moderationcmd.NewModerationService(modRepo, contribRepo, wordRepo, userRepo)
@@ -136,8 +142,9 @@ func main() {
 
 	aiRequestRepo := aiinfra.NewPostgresAIRequestRepository(pool)
 	enrichmentSvc := aicommands.NewEnrichmentService(aiRequestRepo, wordRepo, contribRepo, modRepo, aiClient, cfg.OpenRouterModel)
-	rlCounter := ratelimit.NewRedisCounter(redis)
 	aihttp.RegisterRoutes(app, aihttp.NewHandler(aiSvc), aihttp.NewAdminHandler(enrichmentSvc), rlCounter)
+
+	docs.RegisterRoutes(app)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -152,7 +159,7 @@ func main() {
 
 	<-quit
 	log.Println("shutting down...")
-	if err := app.ShutdownWithTimeout(10 * time.Second); err != nil {
+	if err := app.ShutdownWithTimeout(30 * time.Second); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
 }

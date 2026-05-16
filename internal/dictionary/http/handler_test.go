@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -19,6 +20,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type noopCounter struct{}
+
+func (n *noopCounter) Increment(_ context.Context, _ string, _ time.Duration) (int64, error) {
+	return 1, nil
+}
 
 // ─── in-memory fake repo ─────────────────────────────────────────────────────
 
@@ -118,7 +125,7 @@ func newTestApp(repo *fakeWordRepo) *fiber.App {
 	app := fiber.New(fiber.Config{ErrorHandler: func(c *fiber.Ctx, err error) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}})
-	dictionaryhttp.RegisterRoutes(app, dictionaryhttp.NewHandler(qs, cmd))
+	dictionaryhttp.RegisterRoutes(app, dictionaryhttp.NewHandler(qs, cmd), &noopCounter{})
 	return app
 }
 

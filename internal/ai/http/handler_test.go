@@ -145,3 +145,12 @@ func TestTranslateHandler_429_RateLimit(t *testing.T) {
 	second := do(app, map[string]any{"text": "abah"}, tok)
 	assert.Equal(t, http.StatusTooManyRequests, second.StatusCode)
 }
+
+func TestRateLimit_TranslateEndpoint(t *testing.T) {
+	// 31st call (limit = 30) must return 429
+	counter := nearLimitCounter(30)
+	app := newApp(&fakeLLM{}, counter)
+	tok, _ := auth.GenerateAccessToken("user-1", "user")
+	resp := do(app, map[string]any{"text": "urang"}, tok)
+	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+}

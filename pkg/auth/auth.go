@@ -92,6 +92,20 @@ func RequireAuth() fiber.Handler {
 	}
 }
 
+// TryAuth reads the Bearer token if present and injects claims but does NOT reject if missing.
+func TryAuth() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		header := c.Get("Authorization")
+		if strings.HasPrefix(header, "Bearer ") {
+			tokenStr := strings.TrimPrefix(header, "Bearer ")
+			if claims, err := ParseToken(tokenStr); err == nil {
+				c.Locals(claimsKey, claims)
+			}
+		}
+		return c.Next()
+	}
+}
+
 // RequireRole returns a middleware that permits only the specified roles.
 func RequireRole(roles ...string) fiber.Handler {
 	allowed := make(map[string]struct{}, len(roles))

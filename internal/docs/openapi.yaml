@@ -1,0 +1,2627 @@
+openapi: 3.1.1
+info:
+  title: Kamus Banjar API
+  version: 2.0.0
+  description: |
+    REST API for the Banjar language dictionary (Dialek Hulu). Community-driven
+    platform with user contributions, AI-assisted translation and enrichment via
+    OpenRouter, and admin moderation tooling.
+
+    **Data source:** Kamus Bahasa Banjar Dialek Hulu-Indonesia, Edisi Pertama
+    (Balai Bahasa Banjarmasin, Departemen Pendidikan Nasional, 2008; ISBN 978-979-685-776-0)
+
+    ## Authentication
+    Most write operations and all AI features require a Bearer JWT.
+    Obtain a token via `POST /auth/login` and pass it as:
+    ```
+    Authorization: Bearer <access_token>
+    ```
+
+    ## Error format
+    All errors follow a consistent envelope:
+    ```json
+    { "success": false, "error": { "code": "...", "message": "..." } }
+    ```
+  contact:
+    name: Kamus Banjar Open Source
+  license:
+    name: MIT
+
+servers:
+  - url: /api/v2
+    description: Current version
+
+tags:
+  - name: Dictionary
+    description: Browse and search word entries
+  - name: Contributions
+    description: Community contribution workflow
+  - name: Votes
+    description: Upvote / downvote words and definitions
+  - name: Bookmarks
+    description: Personal word bookmarks
+  - name: Comments
+    description: Community comments on words
+  - name: AI
+    description: AI-powered translation (authenticated users)
+  - name: Auth
+    description: Registration, login, token management
+  - name: Admin — Words
+    description: Direct word management (admin)
+  - name: Admin — Users
+    description: User management (admin)
+  - name: Admin — Moderation
+    description: Contribution and comment moderation queue (admin)
+  - name: Admin — AI
+    description: AI enrichment jobs and review (admin)
+
+# ---------------------------------------------------------------------------
+# Security schemes
+# ---------------------------------------------------------------------------
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  # ---------------------------------------------------------------------------
+  # Reusable parameters
+  # ---------------------------------------------------------------------------
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PerPageParam:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    WordId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DefinitionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ContributionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CommentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AIRequestId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  # ---------------------------------------------------------------------------
+  # Reusable schemas
+  # ---------------------------------------------------------------------------
+  schemas:
+
+    # --- Enums ---
+
+    WordClass:
+      type: string
+      enum: [n, v, a, adv, p, pb, ki]
+      description: |
+        Word class abbreviation (from source dictionary section 2.1):
+        - `n` nomina (noun)
+        - `v` verba (verb)
+        - `a` adjektiva (adjective)
+        - `adv` adverbia (adverb)
+        - `p` partikel (particle/interjection)
+        - `pb` pribahasa (proverb)
+        - `ki` kiasan (figurative/idiomatic)
+
+    Dialect:
+      type: string
+      enum: [hulu]
+      description: Banjar dialect. Only `hulu` is in scope for v2.
+
+    Source:
+      type: string
+      enum: [seeded, contributed, ai_generated]
+
+    ContributionType:
+      type: string
+      enum: [new_word, new_definition, new_example, edit_word]
+
+    ContributionStatus:
+      type: string
+      enum: [pending, approved, rejected, withdrawn]
+
+    AIRequestType:
+      type: string
+      enum: [enrich_definition, suggest_example, suggest_related, quality_check]
+
+    AIRequestStatus:
+      type: string
+      enum: [pending, completed, failed]
+
+    AIReviewStatus:
+      type: string
+      enum: [unreviewed, approved, rejected]
+
+    SortWords:
+      type: string
+      enum: [alphabetical, most_voted, recently_added]
+      default: alphabetical
+
+    UserRole:
+      type: string
+      enum: [user, admin]
+
+    # --- Shared value objects ---
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 500
+
+    ErrorBody:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - NOT_FOUND
+                - CONFLICT
+                - RATE_LIMITED
+                - AI_UNAVAILABLE
+                - INTERNAL_ERROR
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: The given data was invalid.
+            details:
+              type: object
+              additionalProperties: true
+
+    # --- Dictionary ---
+
+    Definition:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meaning:
+          type: string
+          example: ayah
+        sort_order:
+          type: integer
+          example: 1
+        source:
+          $ref: '#/components/schemas/Source'
+        upvotes:
+          type: integer
+          example: 12
+        downvotes:
+          type: integer
+          example: 1
+
+    Example:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        banjar_sentence:
+          type: string
+          example: abah inya kada
+        indonesian_translation:
+          type: string
+          example: dia tidak berayah
+        source:
+          $ref: '#/components/schemas/Source'
+
+    Word:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        banjar:
+          type: string
+          example: abah
+        banjar_syllabified:
+          type: string
+          nullable: true
+          example: a.bah
+        dialect:
+          $ref: '#/components/schemas/Dialect'
+        word_class:
+          $ref: '#/components/schemas/WordClass'
+        homonym_number:
+          type: integer
+          minimum: 1
+          example: 1
+        is_root:
+          type: boolean
+          example: true
+        root_word_id:
+          type: string
+          format: uuid
+          nullable: true
+        definitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Definition'
+        examples:
+          type: array
+          items:
+            $ref: '#/components/schemas/Example'
+        related_words:
+          type: array
+          items:
+            type: string
+            format: uuid
+        status:
+          type: string
+          enum: [active, deprecated]
+        source:
+          $ref: '#/components/schemas/Source'
+        source_reference:
+          type: string
+          nullable: true
+          example: "Kamus Bahasa Banjar Dialek Hulu-Indonesia, Edisi Pertama (Balai Bahasa Banjarmasin, 2008)"
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    WordSummary:
+      type: object
+      description: Lightweight word representation for list responses
+      properties:
+        id:
+          type: string
+          format: uuid
+        banjar:
+          type: string
+          example: abah
+        dialect:
+          $ref: '#/components/schemas/Dialect'
+        word_class:
+          $ref: '#/components/schemas/WordClass'
+        homonym_number:
+          type: integer
+          example: 1
+        is_root:
+          type: boolean
+        primary_meaning:
+          type: string
+          description: First definition meaning for quick display
+          example: ayah
+        source:
+          $ref: '#/components/schemas/Source'
+        created_at:
+          type: string
+          format: date-time
+
+    WordInput:
+      type: object
+      required: [banjar, word_class]
+      properties:
+        banjar:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: abah
+        banjar_syllabified:
+          type: string
+          nullable: true
+          example: a.bah
+        word_class:
+          $ref: '#/components/schemas/WordClass'
+        homonym_number:
+          type: integer
+          minimum: 1
+          default: 1
+        is_root:
+          type: boolean
+          default: true
+        root_word_id:
+          type: string
+          format: uuid
+          nullable: true
+        definitions:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [meaning]
+            properties:
+              meaning:
+                type: string
+                maxLength: 2000
+              sort_order:
+                type: integer
+                minimum: 1
+        examples:
+          type: array
+          items:
+            type: object
+            required: [banjar_sentence, indonesian_translation]
+            properties:
+              banjar_sentence:
+                type: string
+              indonesian_translation:
+                type: string
+
+    # --- Contribution ---
+
+    ContributionPayloadNewWord:
+      type: object
+      required: [banjar, word_class, definitions]
+      properties:
+        banjar:
+          type: string
+          example: kambang
+        banjar_syllabified:
+          type: string
+          nullable: true
+        word_class:
+          $ref: '#/components/schemas/WordClass'
+        definitions:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [meaning]
+            properties:
+              meaning:
+                type: string
+                maxLength: 2000
+        examples:
+          type: array
+          items:
+            type: object
+            properties:
+              banjar_sentence:
+                type: string
+              indonesian_translation:
+                type: string
+
+    ContributionPayloadNewDefinition:
+      type: object
+      required: [meaning]
+      properties:
+        meaning:
+          type: string
+          maxLength: 2000
+          example: bunga; kembang
+
+    ContributionPayloadNewExample:
+      type: object
+      required: [banjar_sentence, indonesian_translation]
+      properties:
+        banjar_sentence:
+          type: string
+        indonesian_translation:
+          type: string
+
+    ContributionPayloadEditWord:
+      type: object
+      properties:
+        banjar:
+          type: string
+        banjar_syllabified:
+          type: string
+          nullable: true
+        word_class:
+          $ref: '#/components/schemas/WordClass'
+
+    Contribution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/ContributionType'
+        contributor_id:
+          type: string
+          format: uuid
+        target_word_id:
+          type: string
+          format: uuid
+          nullable: true
+        payload:
+          type: object
+          additionalProperties: true
+          description: Content varies by contribution type
+        status:
+          $ref: '#/components/schemas/ContributionStatus'
+        reviewer_id:
+          type: string
+          format: uuid
+          nullable: true
+        reviewer_note:
+          type: string
+          nullable: true
+        submitted_at:
+          type: string
+          format: date-time
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    # --- Community ---
+
+    Vote:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        target_type:
+          type: string
+          enum: [word, definition]
+        target_id:
+          type: string
+          format: uuid
+        value:
+          type: string
+          enum: [up, down]
+        created_at:
+          type: string
+          format: date-time
+
+    Bookmark:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        word_id:
+          type: string
+          format: uuid
+        word:
+          $ref: '#/components/schemas/WordSummary'
+        created_at:
+          type: string
+          format: date-time
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        target_type:
+          type: string
+          enum: [word, contribution]
+        target_id:
+          type: string
+          format: uuid
+        body:
+          type: string
+          maxLength: 1000
+        is_flagged:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # --- Identity ---
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Ahmad Fauzi
+        email:
+          type: string
+          format: email
+          example: ahmad@example.com
+        role:
+          $ref: '#/components/schemas/UserRole'
+        is_active:
+          type: boolean
+        email_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    TokenPair:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refresh_token:
+          type: string
+          example: dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...
+        expires_in:
+          type: integer
+          description: Access token TTL in seconds
+          example: 900
+
+    # --- AI ---
+
+    TranslationResult:
+      type: object
+      properties:
+        original:
+          type: string
+          example: inya kada kawa tulak ka pasar
+        translation:
+          type: string
+          example: dia tidak bisa pergi ke pasar
+        dialect:
+          $ref: '#/components/schemas/Dialect'
+        model:
+          type: string
+          example: mistralai/mistral-7b-instruct:free
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        notes:
+          type: string
+          nullable: true
+          example: "Uses BBDH vocabulary: kada=tidak, kawa=bisa, tulak=pergi"
+
+    AIRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/AIRequestType'
+        target_word_id:
+          type: string
+          format: uuid
+          nullable: true
+        target_contribution_id:
+          type: string
+          format: uuid
+          nullable: true
+        requested_by:
+          type: string
+          format: uuid
+        model:
+          type: string
+          example: mistralai/mistral-7b-instruct:free
+        prompt:
+          type: string
+        response:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Raw OpenRouter response
+        parsed_output:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Structured extraction from response
+        status:
+          $ref: '#/components/schemas/AIRequestStatus'
+        review_status:
+          $ref: '#/components/schemas/AIReviewStatus'
+        reviewed_by:
+          type: string
+          format: uuid
+          nullable: true
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    # --- Moderation ---
+
+    ModerationStats:
+      type: object
+      properties:
+        pending_contributions:
+          type: integer
+        flagged_comments:
+          type: integer
+        approved_this_week:
+          type: integer
+        rejected_this_week:
+          type: integer
+
+  # ---------------------------------------------------------------------------
+  # Reusable responses
+  # ---------------------------------------------------------------------------
+  responses:
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          example:
+            success: false
+            error:
+              code: UNAUTHORIZED
+              message: Authentication required.
+
+    Forbidden:
+      description: Insufficient role
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          example:
+            success: false
+            error:
+              code: FORBIDDEN
+              message: You do not have permission to perform this action.
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          example:
+            success: false
+            error:
+              code: NOT_FOUND
+              message: The requested resource was not found.
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          example:
+            success: false
+            error:
+              code: VALIDATION_ERROR
+              message: The given data was invalid.
+              details:
+                banjar: ["The banjar field is required."]
+
+    Conflict:
+      description: Duplicate resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          example:
+            success: false
+            error:
+              code: CONFLICT
+              message: Resource already exists.
+
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          example:
+            success: false
+            error:
+              code: RATE_LIMITED
+              message: Too many requests. Please slow down.
+
+    AIUnavailable:
+      description: OpenRouter unreachable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+          example:
+            success: false
+            error:
+              code: AI_UNAVAILABLE
+              message: AI service is temporarily unavailable.
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+paths:
+
+  # ==========================================================================
+  # Dictionary
+  # ==========================================================================
+
+  /words:
+    get:
+      tags: [Dictionary]
+      summary: List / search words
+      description: |
+        Returns a paginated list of active root words.
+        Supports full-text search on `banjar` and Indonesian meaning fields.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: q
+          in: query
+          description: Full-text search query
+          schema:
+            type: string
+            example: abah
+        - name: word_class
+          in: query
+          description: Filter by word class
+          schema:
+            $ref: '#/components/schemas/WordClass'
+        - name: is_root
+          in: query
+          schema:
+            type: boolean
+        - name: source
+          in: query
+          schema:
+            $ref: '#/components/schemas/Source'
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/SortWords'
+      responses:
+        '200':
+          description: Paginated list of words
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WordSummary'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /words/search:
+    get:
+      tags: [Dictionary]
+      summary: Full-text search (alias)
+      description: Alias for `GET /words?q=`. Retained for discoverability.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/SortWords'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WordSummary'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /words/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WordId'
+    get:
+      tags: [Dictionary]
+      summary: Get word detail
+      responses:
+        '200':
+          description: Word with definitions and examples
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Word'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /words/{id}/definitions:
+    parameters:
+      - $ref: '#/components/parameters/WordId'
+    get:
+      tags: [Dictionary]
+      summary: List definitions for a word
+      description: Returns definitions sorted by net vote score (upvotes − downvotes) descending.
+      responses:
+        '200':
+          description: Definitions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Definition'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /words/{id}/examples:
+    parameters:
+      - $ref: '#/components/parameters/WordId'
+    get:
+      tags: [Dictionary]
+      summary: List example sentences for a word
+      responses:
+        '200':
+          description: Examples
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Example'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /words/{id}/related:
+    parameters:
+      - $ref: '#/components/parameters/WordId'
+    get:
+      tags: [Dictionary]
+      summary: Get related words
+      responses:
+        '200':
+          description: Related words (summary)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WordSummary'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /words/{id}/comments:
+    parameters:
+      - $ref: '#/components/parameters/WordId'
+    get:
+      tags: [Comments]
+      summary: List comments on a word
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Paginated comments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Comments]
+      summary: Post a comment on a word
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  example: Kata ini juga dipakai di Hulu Sungai Utara.
+      responses:
+        '201':
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Comment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /words/{id}/votes:
+    parameters:
+      - $ref: '#/components/parameters/WordId'
+    post:
+      tags: [Votes]
+      summary: Cast a vote on a word
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  enum: [up, down]
+      responses:
+        '201':
+          description: Vote cast (or updated if changing direction)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Vote'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Votes]
+      summary: Remove vote from a word
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Vote removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================================================
+  # Definitions (standalone routes for voting)
+  # ==========================================================================
+
+  /definitions/{id}/votes:
+    parameters:
+      - $ref: '#/components/parameters/DefinitionId'
+    post:
+      tags: [Votes]
+      summary: Cast a vote on a definition
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  enum: [up, down]
+      responses:
+        '201':
+          description: Vote cast
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Vote'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Votes]
+      summary: Remove vote from a definition
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Vote removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================================================
+  # Bookmarks
+  # ==========================================================================
+
+  /bookmarks:
+    get:
+      tags: [Bookmarks]
+      summary: List own bookmarks
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Paginated bookmarks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Bookmark'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Bookmarks]
+      summary: Add a bookmark
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [word_id]
+              properties:
+                word_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Bookmark created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Bookmark'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /bookmarks/{word_id}:
+    parameters:
+      - name: word_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      tags: [Bookmarks]
+      summary: Remove a bookmark
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Bookmark removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================================================
+  # Comments
+  # ==========================================================================
+
+  /comments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/CommentId'
+    patch:
+      tags: [Comments]
+      summary: Edit own comment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        '200':
+          description: Comment updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Comment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Comments]
+      summary: Delete a comment (own or admin)
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Comment deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /comments/{id}/flag:
+    parameters:
+      - $ref: '#/components/parameters/CommentId'
+    post:
+      tags: [Comments]
+      summary: Flag a comment for moderation
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Comment flagged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Comment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ==========================================================================
+  # Contributions
+  # ==========================================================================
+
+  /contributions:
+    get:
+      tags: [Contributions]
+      summary: List contributions
+      description: |
+        Users see their own contributions. Admins see all contributions.
+        Filter by `status` to narrow results.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ContributionStatus'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ContributionType'
+      responses:
+        '200':
+          description: Paginated contributions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Contribution'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Contributions]
+      summary: Submit a contribution
+      description: |
+        Submit a new word, definition, example, or word edit for admin review.
+
+        Payload shape depends on `type`:
+        - `new_word` → `ContributionPayloadNewWord`
+        - `new_definition` → `ContributionPayloadNewDefinition` (requires `target_word_id`)
+        - `new_example` → `ContributionPayloadNewExample` (requires `target_word_id`)
+        - `edit_word` → `ContributionPayloadEditWord` (requires `target_word_id`)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, payload]
+              properties:
+                type:
+                  $ref: '#/components/schemas/ContributionType'
+                target_word_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Required for all types except `new_word`
+                payload:
+                  type: object
+                  additionalProperties: true
+                  description: Content depends on `type`
+            examples:
+              new_word:
+                summary: Submit a new word
+                value:
+                  type: new_word
+                  payload:
+                    banjar: kambang
+                    word_class: n
+                    definitions:
+                      - meaning: bunga; kembang
+              new_definition:
+                summary: Add a definition to existing word
+                value:
+                  type: new_definition
+                  target_word_id: 018e1a3b-1234-7000-8000-abcdef012345
+                  payload:
+                    meaning: perempuan cantik (kiasan)
+      responses:
+        '201':
+          description: Contribution submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Contribution'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /contributions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ContributionId'
+    get:
+      tags: [Contributions]
+      summary: Get contribution detail
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Contribution detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Contribution'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /contributions/{id}/withdraw:
+    parameters:
+      - $ref: '#/components/parameters/ContributionId'
+    patch:
+      tags: [Contributions]
+      summary: Withdraw a pending contribution
+      description: Can only be called by the contributor while status is `pending`.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Contribution withdrawn
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Contribution'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /contributions/{id}/approve:
+    parameters:
+      - $ref: '#/components/parameters/ContributionId'
+    patch:
+      tags: [Contributions]
+      summary: Approve a contribution (admin)
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  description: Optional approval note
+      responses:
+        '200':
+          description: Contribution approved and merged into dictionary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Contribution'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /contributions/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/ContributionId'
+    patch:
+      tags: [Contributions]
+      summary: Reject a contribution (admin)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note:
+                  type: string
+                  description: Reason for rejection shown to contributor
+                  example: Definisi kurang tepat, mohon tambahkan referensi.
+      responses:
+        '200':
+          description: Contribution rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Contribution'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ==========================================================================
+  # AI — Translation (authenticated users)
+  # ==========================================================================
+
+  /ai/translate:
+    post:
+      tags: [AI]
+      summary: Translate Banjar Hulu text to Indonesian
+      description: |
+        Stateless translation via OpenRouter. Result is not stored.
+        Requires authentication (user or admin).
+
+        **Rate limit:** 30 requests/hour per user.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  example: inya kada kawa tulak ka pasar
+                context:
+                  type: string
+                  nullable: true
+                  description: Optional context hint for the model
+                  example: informal conversation
+      responses:
+        '200':
+          description: Translation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/TranslationResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/AIUnavailable'
+
+  # ==========================================================================
+  # Auth
+  # ==========================================================================
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, password_confirmation]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  example: Ahmad Fauzi
+                email:
+                  type: string
+                  format: email
+                  example: ahmad@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                password_confirmation:
+                  type: string
+                  format: password
+      responses:
+        '201':
+          description: Account created; verification email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/User'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and obtain tokens
+      description: '**Rate limit:** 5 requests/minute per IP.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/TokenPair'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out (invalidate refresh token)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '204':
+          description: Logged out; refresh token invalidated
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: New token pair issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/TokenPair'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Auth]
+      summary: Update own profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/me/password:
+    patch:
+      tags: [Auth]
+      summary: Change own password
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, password, password_confirmation]
+              properties:
+                current_password:
+                  type: string
+                  format: password
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                password_confirmation:
+                  type: string
+                  format: password
+      responses:
+        '204':
+          description: Password changed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify email address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  description: Verification token from email
+      responses:
+        '204':
+          description: Email verified
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request a password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '204':
+          description: Reset email sent (if account exists)
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password using token from email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password, password_confirmation]
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                password_confirmation:
+                  type: string
+                  format: password
+      responses:
+        '204':
+          description: Password reset
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ==========================================================================
+  # Admin — Words
+  # ==========================================================================
+
+  /admin/words:
+    get:
+      tags: [Admin — Words]
+      summary: List all words (including inactive/deprecated)
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, deprecated]
+        - name: word_class
+          in: query
+          schema:
+            $ref: '#/components/schemas/WordClass'
+        - name: source
+          in: query
+          schema:
+            $ref: '#/components/schemas/Source'
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated words
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Word'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Admin — Words]
+      summary: Create a word directly (no approval needed)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WordInput'
+      responses:
+        '201':
+          description: Word created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Word'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /admin/words/{id}:
+    parameters:
+      - $ref: '#/components/parameters/WordId'
+    patch:
+      tags: [Admin — Words]
+      summary: Update a word directly
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WordInput'
+      responses:
+        '200':
+          description: Word updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/Word'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Admin — Words]
+      summary: Soft-delete a word
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Word soft-deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================================================
+  # Admin — Users
+  # ==========================================================================
+
+  /admin/users:
+    get:
+      tags: [Admin — Users]
+      summary: List all users
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: role
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserRole'
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          description: Search by name or email
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Admin — Users]
+      summary: Get user detail
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/users/{id}/ban:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      tags: [Admin — Users]
+      summary: Ban a user
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Ban reason (stored in audit log)
+      responses:
+        '200':
+          description: User banned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/users/{id}/unban:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      tags: [Admin — Users]
+      summary: Unban a user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User unbanned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/users/{id}/role:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      tags: [Admin — Users]
+      summary: Change user role
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  $ref: '#/components/schemas/UserRole'
+      responses:
+        '200':
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ==========================================================================
+  # Admin — Moderation
+  # ==========================================================================
+
+  /admin/moderation/queue:
+    get:
+      tags: [Admin — Moderation]
+      summary: Pending contribution queue
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ContributionType'
+      responses:
+        '200':
+          description: Paginated pending contributions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Contribution'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/moderation/flags:
+    get:
+      tags: [Admin — Moderation]
+      summary: Flagged comments queue
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Paginated flagged comments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/moderation/stats:
+    get:
+      tags: [Admin — Moderation]
+      summary: Moderation statistics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Moderation stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/ModerationStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ==========================================================================
+  # Admin — AI enrichment
+  # ==========================================================================
+
+  /admin/ai/enrich/{word_id}:
+    parameters:
+      - name: word_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Admin — AI]
+      summary: Trigger definition enrichment job for a word
+      description: |
+        Creates an `AIRequest` of type `enrich_definition`. The job runs
+        asynchronously. Poll `GET /admin/ai/requests/{id}` for the result.
+      security:
+        - BearerAuth: []
+      responses:
+        '202':
+          description: Enrichment job queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AIRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /admin/ai/example/{word_id}:
+    parameters:
+      - name: word_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Admin — AI]
+      summary: Trigger example sentence suggestion job for a word
+      security:
+        - BearerAuth: []
+      responses:
+        '202':
+          description: Example suggestion job queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AIRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /admin/ai/related/{word_id}:
+    parameters:
+      - name: word_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Admin — AI]
+      summary: Trigger related word suggestion job for a word
+      security:
+        - BearerAuth: []
+      responses:
+        '202':
+          description: Related word suggestion job queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AIRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /admin/ai/check/{contribution_id}:
+    parameters:
+      - name: contribution_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Admin — AI]
+      summary: Run quality check on a contribution
+      description: |
+        Creates an `AIRequest` of type `quality_check`. Output is advisory only —
+        no approval flow required. The result is attached to the `AIRequest` record.
+      security:
+        - BearerAuth: []
+      responses:
+        '202':
+          description: Quality check job queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AIRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /admin/ai/requests:
+    get:
+      tags: [Admin — AI]
+      summary: List AI request history
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/AIRequestType'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/AIRequestStatus'
+        - name: review_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/AIReviewStatus'
+      responses:
+        '200':
+          description: Paginated AI requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AIRequest'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/ai/requests/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AIRequestId'
+    get:
+      tags: [Admin — AI]
+      summary: Get AI request detail with parsed output
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: AI request with full output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AIRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/ai/requests/{id}/approve:
+    parameters:
+      - $ref: '#/components/parameters/AIRequestId'
+    patch:
+      tags: [Admin — AI]
+      summary: Approve AI output and merge into dictionary
+      description: |
+        Merges `parsed_output` into the target word as `source: ai_generated`.
+        Sets `review_status` to `approved`. Cannot approve a `quality_check` request.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: AI output approved and merged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AIRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/ai/requests/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/AIRequestId'
+    patch:
+      tags: [Admin — AI]
+      summary: Reject AI output
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: AI output rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AIRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'

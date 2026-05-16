@@ -865,7 +865,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 7.1 — Rate Limiting Integration
 
-- [ ] **7.1.1 — Apply all rate limits from PRD §7.4**
+- [x] **7.1.1 — Apply all rate limits from PRD §7.4**
   - **Description:** Audit every route group and ensure the rate limiter middleware from task 3.3.2 is applied with correct limits: `GET /words*` (60/min IP for guest, 120/min user ID for auth), `POST /contributions` (10/hour user ID), `POST /auth/login` (5/min IP), `POST /ai/translate` (30/hour user ID), `POST /admin/ai/*` (50/hour admin ID).
   - **DoD:**
     - Each rate limit verified by an automated test hitting the endpoint N+1 times
@@ -878,14 +878,14 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 7.2 — Observability & Configuration
 
-- [ ] **7.2.1 — Structured logging**
+- [x] **7.2.1 — Structured logging**
   - **Description:** Add structured JSON logging using `slog` (stdlib). Log every request (method, path, status, latency) via Fiber middleware. Log every error at ERROR level with stack context. Log AI request outcomes at INFO level.
   - **DoD:**
     - Every HTTP request produces a log line with `method`, `path`, `status`, `latency_ms`
     - Errors include `error` and `request_id` fields
     - Logs are JSON in `APP_ENV=production`, human-readable in `development`
 
-- [ ] **7.2.2 — Request ID middleware**
+- [x] **7.2.2 — Request ID middleware**
   - **Description:** Add Fiber middleware that sets a `X-Request-ID` header on every response (generate UUID if not present in request).
   - **DoD:**
     - Every response has a non-empty `X-Request-ID` header
@@ -893,7 +893,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestRequestIDMiddleware_GeneratesID`
     - `TestRequestIDMiddleware_PreservesClientID`
 
-- [ ] **7.2.3 — Graceful shutdown**
+- [x] **7.2.3 — Graceful shutdown**
   - **Description:** Handle `SIGINT`/`SIGTERM` in `cmd/api/main.go`. Drain active connections with 30-second timeout before exiting.
   - **DoD:**
     - `kill -TERM <pid>` causes the server to finish in-flight requests before exiting
@@ -903,7 +903,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 7.3 — Test Coverage
 
-- [ ] **7.3.1 — Enforce coverage gate**
+- [x] **7.3.1 — Enforce coverage gate**
   - **Description:** Add a `Makefile` target `make coverage` that runs `go test -coverprofile=coverage.out ./internal/...` and fails if coverage in `domain/` and `application/` packages is below 80%. Use `go tool cover` or a simple `awk` check.
   - **DoD:**
     - `make coverage` passes (≥ 80% on domain + application layers)
@@ -911,7 +911,7 @@ and the unit/integration tests required before implementation is considered comp
   - **Tests:**
     - N/A — this task is the coverage gate itself
 
-- [ ] **7.3.2 — Integration test database setup**
+- [x] **7.3.2 — Integration test database setup**
   - **Description:** Create `testutil/db.go` with a helper `SetupTestDB(t *testing.T) *pgxpool.Pool` that creates a throwaway schema per test using `t.Cleanup` to drop it. Allows parallel integration tests without interference.
   - **DoD:**
     - Integration tests can run in parallel without state leaking between them
@@ -921,13 +921,13 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 7.4 — API Documentation
 
-- [ ] **7.4.1 — Serve OpenAPI spec via Swagger UI**
+- [x] **7.4.1 — Serve OpenAPI spec via Swagger UI**
   - **Description:** Serve the `openapi.yaml` file at `GET /docs/openapi.yaml`. Serve Swagger UI at `GET /docs` using `scalar` or `swagger-ui` (embed as static files using Go's `embed` package).
   - **DoD:**
     - `GET /docs/openapi.yaml` returns the YAML with `Content-Type: application/yaml`
     - `GET /docs` renders an interactive UI that lets users try endpoints
 
-- [ ] **7.4.2 — Validate all API responses match OAS schemas**
+- [x] **7.4.2 — Validate all API responses match OAS schemas**
   - **Description:** Add an optional test mode where every HTTP response is validated against the `openapi.yaml` schema using a Go OpenAPI validator (e.g. `kin-openapi`). Run these as part of API/handler tests.
   - **DoD:**
     - Any handler that returns a response shape not matching OAS causes a test failure
@@ -937,14 +937,14 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 7.5 — Deployment Configuration
 
-- [ ] **7.5.1 — Dockerfile**
+- [x] **7.5.1 — Dockerfile**
   - **Description:** Write a multi-stage `Dockerfile`: stage 1 builds the Go binary; stage 2 is a minimal `gcr.io/distroless/static` image with just the binary. `EXPOSE 8080`.
   - **DoD:**
     - `docker build` succeeds
     - `docker run` with correct env vars starts the API and responds to `GET /health`
     - Image is ≤ 30 MB
 
-- [ ] **7.5.2 — Docker Compose for local development**
+- [x] **7.5.2 — Docker Compose for local development**
   - **Description:** Write `docker-compose.yml` with services: `api` (built from Dockerfile), `db` (PostgreSQL 15), `redis` (Redis 7), `migrate` (one-shot container running `make migrate-up`). Include health checks so `api` waits for `db` and `redis`.
   - **DoD:**
     - `docker compose up` starts all services

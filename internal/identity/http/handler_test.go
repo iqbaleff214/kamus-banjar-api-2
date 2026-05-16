@@ -16,9 +16,34 @@ import (
 	identityhttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/http"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/mailer"
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/ratelimit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type noopCounter struct{}
+
+func (n *noopCounter) Increment(_ context.Context, _ string, _ time.Duration) (int64, error) {
+	return 1, nil
+}
+
+type fixedCounter struct{ count int64 }
+
+func (f *fixedCounter) Increment(_ context.Context, _ string, _ time.Duration) (int64, error) {
+	f.count++
+	return f.count, nil
+}
+
+func newAppWithCounter(counter ratelimit.Counter) (*fiber.App, *mailer.MockMailer) {
+	repo := newFakeUserRepo()
+	store := newFakeTokenStore()
+	mock := &mailer.MockMailer{}
+	svc := commands.NewService(repo, store, mock)
+	h := identityhttp.NewHandler(svc)
+	app := fiber.New()
+	identityhttp.RegisterRoutes(app, h, counter)
+	return app, mock
+}
 
 func init() {
 	auth.Init("test-secret-that-is-long-enough-32chars")
@@ -119,7 +144,7 @@ func newApp() (*fiber.App, *mailer.MockMailer) {
 	h := identityhttp.NewHandler(svc)
 
 	app := fiber.New()
-	identityhttp.RegisterRoutes(app, h)
+	identityhttp.RegisterRoutes(app, h, &noopCounter{})
 	return app, mock
 }
 
@@ -300,4 +325,14 @@ func TestChangePasswordHandler_204(t *testing.T) {
 		"current_password": "password123", "new_password": "newpassword123",
 	}, accessToken)
 	assert.Equal(t, 204, status)
+}
+
+func TestRateLimit_LoginEndpoint(t *testing.T) {
+	// 6th call (limit = 5) must return 429
+	counter := &fixedCounter{count: 5}
+	app, _ := newAppWithCounter(counter)
+	status, _ := doRequest(app, "POST", "/api/v2/auth/login", map[string]any{
+		"email": "x@example.com", "password": "password123",
+	}, "")
+	assert.Equal(t, 429, status)
 }

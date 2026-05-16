@@ -389,3 +389,13 @@ func TestFlagCommentHandler_200_Idempotent(t *testing.T) {
 	resp2 := doJSON(t, app, http.MethodPost, "/api/v2/comments/"+commentID+"/flag", nil, tok)
 	assert.Equal(t, http.StatusOK, resp2.StatusCode)
 }
+
+func TestRateLimit_ContributionEndpoint(t *testing.T) {
+	// 11th call (limit = 10) must return 429
+	app := buildApp(t, nearLimitCounter(10), true)
+	resp := doJSON(t, app, http.MethodPost, "/api/v2/contributions", map[string]any{
+		"type":    "new_word",
+		"payload": map[string]any{"banjar": "urang"},
+	}, userToken(t, "user"))
+	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+}
