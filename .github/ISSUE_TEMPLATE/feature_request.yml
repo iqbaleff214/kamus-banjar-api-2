@@ -1,0 +1,55 @@
+name: Feature Request
+description: Suggest a new feature or improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting, please check if a similar request already exists in the open issues.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the project does this relate to?
+      options:
+        - Dictionary (words, definitions, search)
+        - Community (contributions, votes, bookmarks, comments)
+        - Identity (auth, users)
+        - Moderation (admin tools, queues)
+        - AI (translation, enrichment)
+        - Infrastructure (database, cache, config)
+        - CI/CD & tooling
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem does this feature solve? What is currently missing or frustrating?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the feature you would like to see. Be as specific as possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you considered any alternative approaches? Why are they insufficient?
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Any references, prior art, or links that might be useful.

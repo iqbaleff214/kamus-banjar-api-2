@@ -1,0 +1,43 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - gosimple
+    - unused
+    - revive
+    - misspell
+    - gocritic
+    - exhaustive
+  settings:
+    gocritic:
+      disabled-checks:
+        - commentedOutCode
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/iqbaleff214/kamus-banjar-api-2
+
+issues:
+  exclude-rules:
+    - path: "_test\\.go"
+      linters:
+        - errcheck
+        - gocritic
+    - path: "infrastructure/postgres/sqlc"
+      linters:
+        - revive
+        - exhaustive

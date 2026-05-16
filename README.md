@@ -2,6 +2,8 @@
 
 > A community-driven REST API for the Banjar Hulu dialect dictionary — digitized, searchable, and open to contributions.
 
+[![CI](https://github.com/iqbaleff214/kamus-banjar-api-2/actions/workflows/ci.yml/badge.svg)](https://github.com/iqbaleff214/kamus-banjar-api-2/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/iqbaleff214/kamus-banjar-api-2/graph/badge.svg)](https://codecov.io/gh/iqbaleff214/kamus-banjar-api-2)
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/iqbaleff214/kamus-banjar-api-2)

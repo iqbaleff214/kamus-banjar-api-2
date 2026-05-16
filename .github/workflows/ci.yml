@@ -22,7 +22,13 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test ./... -count=1 -race -timeout 120s
+        run: go test ./... -count=1 -race -timeout 120s -coverprofile=coverage.out -covermode=atomic
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.out
+          fail_ci_if_error: false
 
   build:
     name: Build
