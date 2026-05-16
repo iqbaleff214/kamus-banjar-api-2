@@ -1,3 +1,6 @@
+-- name: GetDefinitionByID :one
+SELECT * FROM definitions WHERE id = $1 LIMIT 1;
+
 -- name: CreateDefinition :one
 INSERT INTO definitions (id, word_id, meaning, sort_order, source, upvotes, downvotes, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)

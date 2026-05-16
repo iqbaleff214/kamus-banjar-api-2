@@ -485,7 +485,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 4.1 — Contribution Domain
 
-- [ ] **4.1.1 — Define `Contribution` aggregate**
+- [x] **4.1.1 — Define `Contribution` aggregate**
   - **Description:** Implement `internal/community/domain/contribution.go` with `Contribution` struct (fields from PRD §4.2). Domain methods: `NewContribution(contributorID, type_, targetWordID *string, payload JSON) (*Contribution, error)`, `Approve(reviewerID, note string) error`, `Reject(reviewerID, note string) error`, `Withdraw(callerID string) error`. Status state machine enforced in domain.
   - **DoD:**
     - `Approve` on non-`pending` contribution returns `ErrInvalidTransition`
@@ -501,14 +501,14 @@ and the unit/integration tests required before implementation is considered comp
     - `TestContribution_WithdrawAfterApproval` — returns error
     - `TestContribution_NewDefinition_RequiresTargetWordID`
 
-- [ ] **4.1.2 — Define `ContributionRepository` interface**
+- [x] **4.1.2 — Define `ContributionRepository` interface**
   - **Description:** Interface with: `Create`, `FindByID`, `FindByContributor(ctx, userID, filter, page, perPage)`, `FindAll(ctx, filter, page, perPage)`, `Update`.
 
 ---
 
 ### 4.2 — Vote Domain
 
-- [ ] **4.2.1 — Define `Vote` aggregate**
+- [x] **4.2.1 — Define `Vote` aggregate**
   - **Description:** Implement `internal/community/domain/vote.go`. `CastVote(userID, targetType, targetID, value string) (*Vote, error)` validates `targetType ∈ {word, definition}` and `value ∈ {up, down}`.
   - **DoD:**
     - Invalid `targetType` → domain error
@@ -518,14 +518,14 @@ and the unit/integration tests required before implementation is considered comp
     - `TestCastVote_InvalidTargetType`
     - `TestCastVote_InvalidValue`
 
-- [ ] **4.2.2 — Define `VoteRepository` interface**
+- [x] **4.2.2 — Define `VoteRepository` interface**
   - **Description:** Interface with: `Upsert(ctx, *Vote) error` (insert or update if same user+target), `Delete(ctx, userID, targetType, targetID string) error`, `FindByUserAndTarget(ctx, userID, targetType, targetID string) (*Vote, error)`.
 
 ---
 
 ### 4.3 — Bookmark Domain
 
-- [ ] **4.3.1 — Define `Bookmark` aggregate and repository**
+- [x] **4.3.1 — Define `Bookmark` aggregate and repository**
   - **Description:** `Bookmark` struct with `id`, `user_id`, `word_id`, `created_at`. `BookmarkRepository` interface: `Create`, `Delete(ctx, userID, wordID)`, `FindByUser(ctx, userID, page, perPage)`, `Exists(ctx, userID, wordID) bool`.
   - **DoD:**
     - Creating a duplicate bookmark is caught at repository level (unique constraint)
@@ -536,7 +536,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 4.4 — Comment Domain
 
-- [ ] **4.4.1 — Define `Comment` aggregate**
+- [x] **4.4.1 — Define `Comment` aggregate**
   - **Description:** Implement `internal/community/domain/comment.go`. `NewComment(userID, targetType, targetID, body string) (*Comment, error)` validates `body` is not empty and ≤ 1000 chars. `Edit(callerID, newBody string) error` enforces caller is owner. `Flag()` sets `is_flagged = true`. `CommentRepository` interface: `Create`, `FindByID`, `FindByTarget(ctx, targetType, targetID, page, perPage)`, `Update`, `Delete`.
   - **DoD:**
     - Body > 1000 chars → domain error
@@ -550,13 +550,13 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 4.5 — Community Infrastructure
 
-- [ ] **4.5.1 — Migration: community tables**
+- [x] **4.5.1 — Migration: community tables**
   - **Description:** Write `migrations/000004_create_community.up.sql` creating: `contributions`, `votes`, `bookmarks`, `comments` tables with all fields from PRD §4.2. Add unique constraints: `votes(user_id, target_type, target_id)`, `bookmarks(user_id, word_id)`.
   - **DoD:**
     - Migration applies and reverts cleanly
     - Unique constraints enforced by DB
 
-- [ ] **4.5.2 — sqlc: generate community queries**
+- [x] **4.5.2 — sqlc: generate community queries**
   - **Description:** Write and generate queries for all four community aggregates. Implement `PostgresContributionRepository`, `PostgresVoteRepository`, `PostgresBookmarkRepository`, `PostgresCommentRepository`.
   - **DoD:**
     - `sqlc generate` succeeds
@@ -572,7 +572,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 4.6 — Community Application
 
-- [ ] **4.6.1 — Contribution commands**
+- [x] **4.6.1 — Contribution commands**
   - **Description:** `SubmitContribution(ctx, userID, type_, targetWordID *string, payload) (*Contribution, error)` — validates user email is verified (else `FORBIDDEN`), validates `targetWordID` exists for non-`new_word` types, persists. `WithdrawContribution(ctx, callerID, contributionID) error`.
   - **DoD:**
     - Unverified email → `FORBIDDEN` with message explaining verification requirement
@@ -583,7 +583,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestSubmitContribution_InvalidTargetWord`
     - `TestWithdrawContribution_Success`
 
-- [ ] **4.6.2 — Vote commands**
+- [x] **4.6.2 — Vote commands**
   - **Description:** `CastVote(ctx, userID, targetType, targetID, value string) (*Vote, error)` — validates target exists (word or definition), calls `VoteRepository.Upsert`. `RemoveVote(ctx, userID, targetType, targetID string) error`.
   - **DoD:**
     - Non-existent target → `NOT_FOUND`
@@ -592,7 +592,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestCastVote_TargetNotFound`
     - `TestCastVote_ChangeDirection` — second vote changes value, count reflects correctly
 
-- [ ] **4.6.3 — Bookmark commands**
+- [x] **4.6.3 — Bookmark commands**
   - **Description:** `AddBookmark(ctx, userID, wordID string) (*Bookmark, error)`. `RemoveBookmark(ctx, userID, wordID string) error`. `ListBookmarks(ctx, userID, page, perPage)`.
   - **DoD:**
     - Adding duplicate bookmark → `CONFLICT`
@@ -601,7 +601,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestAddBookmark_Duplicate`
     - `TestRemoveBookmark_NotFound`
 
-- [ ] **4.6.4 — Comment commands**
+- [x] **4.6.4 — Comment commands**
   - **Description:** `PostComment(ctx, userID, wordID, body string) (*Comment, error)`. `EditComment(ctx, callerID, commentID, body string) (*Comment, error)`. `DeleteComment(ctx, callerID, callerRole, commentID string) error` (admin can delete any). `FlagComment(ctx, callerID, commentID string) error`.
   - **DoD:**
     - Edit by non-owner → `FORBIDDEN`
@@ -616,7 +616,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 4.7 — Community HTTP
 
-- [ ] **4.7.1 — Contribution routes**
+- [x] **4.7.1 — Contribution routes**
   - **Description:** Register contribution endpoints from OAS §5.3. All require `RequireAuth()`. `POST /contributions` has rate limit: 10/hour per user. `approve` and `reject` sub-routes require `RequireRole("admin")`.
   - **DoD:**
     - `POST /contributions` → 201 on success
@@ -631,7 +631,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestRejectContributionHandler_422_MissingNote`
     - `TestWithdrawContributionHandler_409_NotPending`
 
-- [ ] **4.7.2 — Vote, Bookmark, Comment routes**
+- [x] **4.7.2 — Vote, Bookmark, Comment routes**
   - **Description:** Register all community endpoints from OAS §5.4. All write operations require `RequireAuth()`. Comment reads (`GET /words/:id/comments`) are public.
   - **DoD:**
     - `POST /words/:id/votes` with same value twice: second call updates (upsert), no 409

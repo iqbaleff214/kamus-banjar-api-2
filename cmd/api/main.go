@@ -17,6 +17,9 @@ import (
 	aicommands "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/application/commands"
 	aihttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/http"
 	openrouterclient "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/infrastructure/openrouter"
+	communitycmd "github.com/iqbaleff214/kamus-banjar-api-2/internal/community/application/commands"
+	communityhttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/community/http"
+	communityinfra "github.com/iqbaleff214/kamus-banjar-api-2/internal/community/infrastructure/postgres"
 	dictcmd "github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/application/commands"
 	dictqry "github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/application/queries"
 	dicthttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/http"
@@ -100,6 +103,22 @@ func main() {
 	wordQry := dictqry.NewWordQueryService(wordRepo)
 	wordCmd := dictcmd.NewWordCommandService(wordRepo)
 	dicthttp.RegisterRoutes(app, dicthttp.NewHandler(wordQry, wordCmd))
+
+	contribRepo := communityinfra.NewPostgresContributionRepository(pool)
+	voteRepo := communityinfra.NewPostgresVoteRepository(pool)
+	bookmarkRepo := communityinfra.NewPostgresBookmarkRepository(pool)
+	commentRepo := communityinfra.NewPostgresCommentRepository(pool)
+	wordChecker := communityinfra.NewWordExistChecker(pool)
+	defChecker := communityinfra.NewDefinitionExistChecker(pool)
+	emailVerifier := communityinfra.NewUserEmailVerifier(pool)
+
+	contribSvc := communitycmd.NewContributionService(contribRepo, wordChecker, emailVerifier)
+	voteSvc := communitycmd.NewVoteService(voteRepo, wordChecker, defChecker)
+	bookmarkSvc := communitycmd.NewBookmarkService(bookmarkRepo, wordChecker)
+	commentSvc := communitycmd.NewCommentService(commentRepo, wordChecker)
+
+	communityHandler := communityhttp.NewHandler(contribSvc, voteSvc, bookmarkSvc, commentSvc)
+	communityhttp.RegisterRoutes(app, communityHandler, ratelimit.NewRedisCounter(redis))
 
 	aiClient, err := openrouterclient.New(cfg)
 	if err != nil {

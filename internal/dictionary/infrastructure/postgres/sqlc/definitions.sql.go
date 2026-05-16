@@ -66,6 +66,27 @@ func (q *Queries) DeleteDefinitionsByWordID(ctx context.Context, wordID uuid.UUI
 	return err
 }
 
+const getDefinitionByID = `-- name: GetDefinitionByID :one
+SELECT id, word_id, meaning, sort_order, source, upvotes, downvotes, created_at, updated_at FROM definitions WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetDefinitionByID(ctx context.Context, id uuid.UUID) (Definition, error) {
+	row := q.db.QueryRowContext(ctx, getDefinitionByID, id)
+	var i Definition
+	err := row.Scan(
+		&i.ID,
+		&i.WordID,
+		&i.Meaning,
+		&i.SortOrder,
+		&i.Source,
+		&i.Upvotes,
+		&i.Downvotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getDefinitionsByWordID = `-- name: GetDefinitionsByWordID :many
 SELECT id, word_id, meaning, sort_order, source, upvotes, downvotes, created_at, updated_at FROM definitions
 WHERE word_id = $1

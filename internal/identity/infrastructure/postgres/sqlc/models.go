@@ -7,11 +7,142 @@ package sqlcidentity
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+type CommentTargetType string
+
+const (
+	CommentTargetTypeWord         CommentTargetType = "word"
+	CommentTargetTypeContribution CommentTargetType = "contribution"
+)
+
+func (e *CommentTargetType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CommentTargetType(s)
+	case string:
+		*e = CommentTargetType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CommentTargetType: %T", src)
+	}
+	return nil
+}
+
+type NullCommentTargetType struct {
+	CommentTargetType CommentTargetType `json:"comment_target_type"`
+	Valid             bool              `json:"valid"` // Valid is true if CommentTargetType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCommentTargetType) Scan(value interface{}) error {
+	if value == nil {
+		ns.CommentTargetType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CommentTargetType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCommentTargetType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CommentTargetType), nil
+}
+
+type ContributionStatus string
+
+const (
+	ContributionStatusPending   ContributionStatus = "pending"
+	ContributionStatusApproved  ContributionStatus = "approved"
+	ContributionStatusRejected  ContributionStatus = "rejected"
+	ContributionStatusWithdrawn ContributionStatus = "withdrawn"
+)
+
+func (e *ContributionStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ContributionStatus(s)
+	case string:
+		*e = ContributionStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ContributionStatus: %T", src)
+	}
+	return nil
+}
+
+type NullContributionStatus struct {
+	ContributionStatus ContributionStatus `json:"contribution_status"`
+	Valid              bool               `json:"valid"` // Valid is true if ContributionStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullContributionStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ContributionStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ContributionStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullContributionStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ContributionStatus), nil
+}
+
+type ContributionType string
+
+const (
+	ContributionTypeNewWord       ContributionType = "new_word"
+	ContributionTypeNewDefinition ContributionType = "new_definition"
+	ContributionTypeNewExample    ContributionType = "new_example"
+	ContributionTypeEditWord      ContributionType = "edit_word"
+)
+
+func (e *ContributionType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ContributionType(s)
+	case string:
+		*e = ContributionType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ContributionType: %T", src)
+	}
+	return nil
+}
+
+type NullContributionType struct {
+	ContributionType ContributionType `json:"contribution_type"`
+	Valid            bool             `json:"valid"` // Valid is true if ContributionType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullContributionType) Scan(value interface{}) error {
+	if value == nil {
+		ns.ContributionType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ContributionType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullContributionType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ContributionType), nil
+}
 
 type Dialect string
 
@@ -94,6 +225,90 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.UserRole), nil
+}
+
+type VoteTargetType string
+
+const (
+	VoteTargetTypeWord       VoteTargetType = "word"
+	VoteTargetTypeDefinition VoteTargetType = "definition"
+)
+
+func (e *VoteTargetType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VoteTargetType(s)
+	case string:
+		*e = VoteTargetType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VoteTargetType: %T", src)
+	}
+	return nil
+}
+
+type NullVoteTargetType struct {
+	VoteTargetType VoteTargetType `json:"vote_target_type"`
+	Valid          bool           `json:"valid"` // Valid is true if VoteTargetType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVoteTargetType) Scan(value interface{}) error {
+	if value == nil {
+		ns.VoteTargetType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VoteTargetType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVoteTargetType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VoteTargetType), nil
+}
+
+type VoteValue string
+
+const (
+	VoteValueUp   VoteValue = "up"
+	VoteValueDown VoteValue = "down"
+)
+
+func (e *VoteValue) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = VoteValue(s)
+	case string:
+		*e = VoteValue(s)
+	default:
+		return fmt.Errorf("unsupported scan type for VoteValue: %T", src)
+	}
+	return nil
+}
+
+type NullVoteValue struct {
+	VoteValue VoteValue `json:"vote_value"`
+	Valid     bool      `json:"valid"` // Valid is true if VoteValue is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVoteValue) Scan(value interface{}) error {
+	if value == nil {
+		ns.VoteValue, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.VoteValue.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVoteValue) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.VoteValue), nil
 }
 
 type WordClass string
@@ -228,6 +443,37 @@ func (ns NullWordStatus) Value() (driver.Value, error) {
 	return string(ns.WordStatus), nil
 }
 
+type Bookmark struct {
+	ID        uuid.UUID `db:"id" json:"id"`
+	UserID    uuid.UUID `db:"user_id" json:"user_id"`
+	WordID    uuid.UUID `db:"word_id" json:"word_id"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
+type Comment struct {
+	ID         uuid.UUID         `db:"id" json:"id"`
+	UserID     uuid.UUID         `db:"user_id" json:"user_id"`
+	TargetType CommentTargetType `db:"target_type" json:"target_type"`
+	TargetID   uuid.UUID         `db:"target_id" json:"target_id"`
+	Body       string            `db:"body" json:"body"`
+	IsFlagged  bool              `db:"is_flagged" json:"is_flagged"`
+	CreatedAt  time.Time         `db:"created_at" json:"created_at"`
+	UpdatedAt  time.Time         `db:"updated_at" json:"updated_at"`
+}
+
+type Contribution struct {
+	ID            uuid.UUID          `db:"id" json:"id"`
+	Type          ContributionType   `db:"type" json:"type"`
+	ContributorID uuid.UUID          `db:"contributor_id" json:"contributor_id"`
+	TargetWordID  uuid.NullUUID      `db:"target_word_id" json:"target_word_id"`
+	Payload       json.RawMessage    `db:"payload" json:"payload"`
+	Status        ContributionStatus `db:"status" json:"status"`
+	ReviewerID    uuid.NullUUID      `db:"reviewer_id" json:"reviewer_id"`
+	ReviewerNote  sql.NullString     `db:"reviewer_note" json:"reviewer_note"`
+	SubmittedAt   time.Time          `db:"submitted_at" json:"submitted_at"`
+	ReviewedAt    sql.NullTime       `db:"reviewed_at" json:"reviewed_at"`
+}
+
 type Definition struct {
 	ID        uuid.UUID  `db:"id" json:"id"`
 	WordID    uuid.UUID  `db:"word_id" json:"word_id"`
@@ -260,6 +506,15 @@ type User struct {
 	EmailVerifiedAt sql.NullTime `db:"email_verified_at" json:"email_verified_at"`
 	CreatedAt       time.Time    `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time    `db:"updated_at" json:"updated_at"`
+}
+
+type Vote struct {
+	ID         uuid.UUID      `db:"id" json:"id"`
+	UserID     uuid.UUID      `db:"user_id" json:"user_id"`
+	TargetType VoteTargetType `db:"target_type" json:"target_type"`
+	TargetID   uuid.UUID      `db:"target_id" json:"target_id"`
+	Value      VoteValue      `db:"value" json:"value"`
+	CreatedAt  time.Time      `db:"created_at" json:"created_at"`
 }
 
 type Word struct {
