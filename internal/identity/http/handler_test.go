@@ -130,7 +130,7 @@ func doRequest(app *fiber.App, method, path string, body any, token string) (int
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, -1)
 	if err != nil {
 		return 0, nil
 	}
