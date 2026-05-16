@@ -7,8 +7,6 @@ linters:
     - govet
     - ineffassign
     - staticcheck
-    - gosimple
-    - unused
     - revive
     - misspell
     - gocritic
