@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ─── base ────────────────────────────────────────────────────────────────────
-FROM golang:1.23-alpine AS base
+FROM golang:1.26-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache git ca-certificates tzdata
 
