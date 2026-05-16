@@ -66,7 +66,8 @@ type fakeTokenStore struct{ data map[string]string }
 
 func newFakeTokenStore() *fakeTokenStore { return &fakeTokenStore{data: make(map[string]string)} }
 func (s *fakeTokenStore) StoreRefreshToken(_ context.Context, t, uid string, _ time.Duration) error {
-	s.data["refresh:"+t] = uid; return nil
+	s.data["refresh:"+t] = uid
+	return nil
 }
 func (s *fakeTokenStore) GetUserIDByRefreshToken(_ context.Context, t string) (string, error) {
 	v, ok := s.data["refresh:"+t]
@@ -76,10 +77,12 @@ func (s *fakeTokenStore) GetUserIDByRefreshToken(_ context.Context, t string) (s
 	return v, nil
 }
 func (s *fakeTokenStore) RevokeRefreshToken(_ context.Context, t string) error {
-	delete(s.data, "refresh:"+t); return nil
+	delete(s.data, "refresh:"+t)
+	return nil
 }
 func (s *fakeTokenStore) StoreVerificationToken(_ context.Context, t, uid string, _ time.Duration) error {
-	s.data["verify:"+t] = uid; return nil
+	s.data["verify:"+t] = uid
+	return nil
 }
 func (s *fakeTokenStore) GetUserIDByVerificationToken(_ context.Context, t string) (string, error) {
 	v, ok := s.data["verify:"+t]
@@ -89,10 +92,12 @@ func (s *fakeTokenStore) GetUserIDByVerificationToken(_ context.Context, t strin
 	return v, nil
 }
 func (s *fakeTokenStore) DeleteVerificationToken(_ context.Context, t string) error {
-	delete(s.data, "verify:"+t); return nil
+	delete(s.data, "verify:"+t)
+	return nil
 }
 func (s *fakeTokenStore) StoreResetToken(_ context.Context, t, uid string, _ time.Duration) error {
-	s.data["reset:"+t] = uid; return nil
+	s.data["reset:"+t] = uid
+	return nil
 }
 func (s *fakeTokenStore) GetUserIDByResetToken(_ context.Context, t string) (string, error) {
 	v, ok := s.data["reset:"+t]
@@ -102,7 +107,8 @@ func (s *fakeTokenStore) GetUserIDByResetToken(_ context.Context, t string) (str
 	return v, nil
 }
 func (s *fakeTokenStore) DeleteResetToken(_ context.Context, t string) error {
-	delete(s.data, "reset:"+t); return nil
+	delete(s.data, "reset:"+t)
+	return nil
 }
 
 func newApp() (*fiber.App, *mailer.MockMailer) {

@@ -31,23 +31,23 @@ type seedMeta struct {
 }
 
 type seedExample struct {
-	Banjar    string `json:"banjar"`
+	Banjar     string `json:"banjar"`
 	Indonesian string `json:"indonesian"`
 }
 
 type seedEntry struct {
-	Banjar           string        `json:"banjar"`
-	BanjarSyllabified string       `json:"banjar_syllabified"`
-	WordClass        string        `json:"word_class"`
-	WordClassFull    string        `json:"word_class_full"`
-	Definitions      []string      `json:"definitions"`
-	Examples         []seedExample `json:"examples"`
-	IsDerived        bool          `json:"is_derived"`
-	HomonymNumber    int           `json:"homonym_number"`
-	Dialect          string        `json:"dialect"`
-	Source           string        `json:"source"`
-	SourceReference  string        `json:"source_reference"`
-	DerivedForms     []seedEntry   `json:"derived_forms"`
+	Banjar            string        `json:"banjar"`
+	BanjarSyllabified string        `json:"banjar_syllabified"`
+	WordClass         string        `json:"word_class"`
+	WordClassFull     string        `json:"word_class_full"`
+	Definitions       []string      `json:"definitions"`
+	Examples          []seedExample `json:"examples"`
+	IsDerived         bool          `json:"is_derived"`
+	HomonymNumber     int           `json:"homonym_number"`
+	Dialect           string        `json:"dialect"`
+	Source            string        `json:"source"`
+	SourceReference   string        `json:"source_reference"`
+	DerivedForms      []seedEntry   `json:"derived_forms"`
 }
 
 type seedFile struct {
