@@ -421,7 +421,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 3.1 — OpenRouter Client
 
-- [ ] **3.1.1 — Implement OpenRouter HTTP client**
+- [x] **3.1.1 — Implement OpenRouter HTTP client**
   - **Description:** Implement `internal/ai/infrastructure/openrouter/client.go` with interface `LLMClient { Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) }` and an `OpenRouterClient` implementation. `CompletionRequest` has: `model`, `messages []Message`, `temperature`. Reads `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL` from config. Sets `HTTP-Referer` and `X-Title` headers required by OpenRouter.
   - **DoD:**
     - Client returns `ErrAIUnavailable` (mapped to `AI_UNAVAILABLE`) on non-2xx HTTP response or network error
@@ -435,7 +435,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 3.2 — Translation Application
 
-- [ ] **3.2.1 — `TranslateText` command**
+- [x] **3.2.1 — `TranslateText` command**
   - **Description:** Implement `internal/ai/application/commands/translate_text.go` with `TranslateText(ctx, text, context_ string) (*TranslationResult, error)`. Builds a system prompt that instructs the model to translate Banjar Hulu → Indonesian, noting dialect-specific vocabulary. Calls `LLMClient.Complete`. Parses the response into `TranslationResult` (`original`, `translation`, `dialect`, `model`, `confidence`, `notes`). Result is NOT persisted.
   - **DoD:**
     - Input text > 1000 chars → `VALIDATION_ERROR` before calling LLM
@@ -452,7 +452,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 3.3 — Translation HTTP
 
-- [ ] **3.3.1 — `POST /ai/translate` handler**
+- [x] **3.3.1 — `POST /ai/translate` handler**
   - **Description:** Implement `internal/ai/http/routes.go` registering `POST /api/v2/ai/translate`. Require `RequireAuth()` (user or admin). Apply Redis rate limit: 30 req/hour per user ID. Call `TranslateText` command. Return OAS `TranslationResult` response on success.
   - **DoD:**
     - Unauthenticated request → 401
@@ -468,7 +468,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestTranslateHandler_503_LLMDown`
     - `TestTranslateHandler_429_RateLimit`
 
-- [ ] **3.3.2 — Redis rate limiter middleware**
+- [x] **3.3.2 — Redis rate limiter middleware**
   - **Description:** Implement `pkg/ratelimit/middleware.go` with `Limiter(key func(*fiber.Ctx) string, limit int, window time.Duration) fiber.Handler` using a Redis sliding window counter (`INCR` + `EXPIRE` or sorted set approach). Return 429 with `RATE_LIMITED` when limit exceeded. Used by `/ai/translate`, `/contributions`, `/auth/login`, and admin AI endpoints.
   - **DoD:**
     - Under limit: request passes through

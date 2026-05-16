@@ -22,11 +22,15 @@ import (
 	identityinfra "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/infrastructure/postgres"
 	redisstore "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/infrastructure/redis"
 	identityhttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/http"
+	aicommands "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/application/commands"
+	aihttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/http"
+	openrouterclient "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/infrastructure/openrouter"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/cache"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/config"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/database"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/mailer"
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/ratelimit"
 )
 
 func main() {
@@ -96,6 +100,13 @@ func main() {
 	wordQry := dictqry.NewWordQueryService(wordRepo)
 	wordCmd := dictcmd.NewWordCommandService(wordRepo)
 	dicthttp.RegisterRoutes(app, dicthttp.NewHandler(wordQry, wordCmd))
+
+	aiClient, err := openrouterclient.New(cfg)
+	if err != nil {
+		log.Fatalf("ai: %v", err)
+	}
+	aiSvc := aicommands.NewTranslateService(aiClient, cfg.OpenRouterModel)
+	aihttp.RegisterRoutes(app, aihttp.NewHandler(aiSvc), ratelimit.NewRedisCounter(redis))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

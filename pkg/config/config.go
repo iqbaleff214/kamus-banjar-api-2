@@ -44,6 +44,7 @@ func Load() (*Config, error) {
 		"DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASS",
 		"REDIS_ADDR",
 		"JWT_SECRET",
+		"OPENROUTER_API_KEY",
 	}
 	for _, key := range required {
 		if os.Getenv(key) == "" {
