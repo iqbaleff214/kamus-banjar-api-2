@@ -56,16 +56,16 @@ type wordSummaryResponse struct {
 }
 
 type wordInputRequest struct {
-	Banjar            string              `json:"banjar"`
-	BanjarSyllabified string              `json:"banjar_syllabified"`
-	WordClass         string              `json:"word_class"`
-	Dialect           string              `json:"dialect"`
-	HomonymNumber     int                 `json:"homonym_number"`
-	IsRoot            bool                `json:"is_root"`
-	RootWordID        *uuid.UUID          `json:"root_word_id"`
-	Definitions       []defInputReq       `json:"definitions"`
-	Examples          []exampleInputReq   `json:"examples"`
-	SourceReference   string              `json:"source_reference"`
+	Banjar            string            `json:"banjar"`
+	BanjarSyllabified string            `json:"banjar_syllabified"`
+	WordClass         string            `json:"word_class"`
+	Dialect           string            `json:"dialect"`
+	HomonymNumber     int               `json:"homonym_number"`
+	IsRoot            bool              `json:"is_root"`
+	RootWordID        *uuid.UUID        `json:"root_word_id"`
+	Definitions       []defInputReq     `json:"definitions"`
+	Examples          []exampleInputReq `json:"examples"`
+	SourceReference   string            `json:"source_reference"`
 }
 
 type defInputReq struct {

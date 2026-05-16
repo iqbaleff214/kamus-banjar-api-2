@@ -7,24 +7,24 @@ import (
 )
 
 type Word struct {
-	ID               uuid.UUID
-	Banjar           string
+	ID                uuid.UUID
+	Banjar            string
 	BanjarSyllabified string
-	Dialect          Dialect
-	WordClass        WordClass
-	HomonymNumber    int
-	IsRoot           bool
-	RootWordID       *uuid.UUID
-	Definitions      []*Definition
-	Examples         []*Example
-	RelatedWords     []uuid.UUID
-	Status           WordStatus
-	Source           Source
-	SourceReference  string
-	CreatedBy        *uuid.UUID
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	DeletedAt        *time.Time
+	Dialect           Dialect
+	WordClass         WordClass
+	HomonymNumber     int
+	IsRoot            bool
+	RootWordID        *uuid.UUID
+	Definitions       []*Definition
+	Examples          []*Example
+	RelatedWords      []uuid.UUID
+	Status            WordStatus
+	Source            Source
+	SourceReference   string
+	CreatedBy         *uuid.UUID
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         *time.Time
 }
 
 // NewWord creates and validates a new Word aggregate.
