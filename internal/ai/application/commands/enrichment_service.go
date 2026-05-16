@@ -54,7 +54,7 @@ func (s *EnrichmentService) TriggerDefinitionEnrichment(ctx context.Context, adm
 		return nil, err
 	}
 
-	go s.runLLM(req, prompt)
+	go s.runLLM(req.ID, prompt)
 	return req, nil
 }
 
@@ -70,7 +70,7 @@ func (s *EnrichmentService) TriggerExampleSuggestion(ctx context.Context, adminI
 		return nil, err
 	}
 
-	go s.runLLM(req, prompt)
+	go s.runLLM(req.ID, prompt)
 	return req, nil
 }
 
@@ -86,7 +86,7 @@ func (s *EnrichmentService) TriggerRelatedWordSuggestion(ctx context.Context, ad
 		return nil, err
 	}
 
-	go s.runLLM(req, prompt)
+	go s.runLLM(req.ID, prompt)
 	return req, nil
 }
 
@@ -102,7 +102,7 @@ func (s *EnrichmentService) TriggerQualityCheck(ctx context.Context, adminID, co
 		return nil, err
 	}
 
-	go s.runLLM(req, prompt)
+	go s.runLLM(req.ID, prompt)
 	return req, nil
 }
 
@@ -168,8 +168,15 @@ func (s *EnrichmentService) ListPendingReview(ctx context.Context, page, perPage
 
 // ─── LLM runner ──────────────────────────────────────────────────────────────
 
-func (s *EnrichmentService) runLLM(req *aidomain.AIRequest, prompt string) {
+func (s *EnrichmentService) runLLM(reqID uuid.UUID, prompt string) {
 	ctx := context.Background()
+
+	// Load a fresh copy so this goroutine never shares a pointer with the caller.
+	req, err := s.aiRepo.FindByID(ctx, reqID)
+	if err != nil {
+		return
+	}
+
 	resp, err := s.llm.Complete(ctx, aidomain.CompletionRequest{
 		Model: s.model,
 		Messages: []aidomain.Message{

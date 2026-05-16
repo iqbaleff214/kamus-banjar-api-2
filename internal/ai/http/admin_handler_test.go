@@ -38,7 +38,8 @@ func (f *fakeAIRepo) Create(_ context.Context, r *aidomain.AIRequest) error {
 }
 func (f *fakeAIRepo) FindByID(_ context.Context, id uuid.UUID) (*aidomain.AIRequest, error) {
 	if r, ok := f.store[id]; ok {
-		return r, nil
+		cp := *r // return a copy, mirroring real DB deserialization
+		return &cp, nil
 	}
 	return nil, errors.New("not found")
 }

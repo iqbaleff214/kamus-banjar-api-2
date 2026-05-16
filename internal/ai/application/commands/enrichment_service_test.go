@@ -3,6 +3,7 @@ package commands_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 // ─── fakes ────────────────────────────────────────────────────────────────────
 
 type fakeAIRepo struct {
+	mu    sync.RWMutex
 	store map[uuid.UUID]*aidomain.AIRequest
 }
 
@@ -27,16 +29,23 @@ func newFakeAIRepo() *fakeAIRepo {
 	return &fakeAIRepo{store: make(map[uuid.UUID]*aidomain.AIRequest)}
 }
 func (f *fakeAIRepo) Create(_ context.Context, r *aidomain.AIRequest) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.store[r.ID] = r
 	return nil
 }
 func (f *fakeAIRepo) FindByID(_ context.Context, id uuid.UUID) (*aidomain.AIRequest, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	if r, ok := f.store[id]; ok {
-		return r, nil
+		cp := *r // return a copy, mirroring real DB deserialization
+		return &cp, nil
 	}
 	return nil, errors.New("not found")
 }
 func (f *fakeAIRepo) Update(_ context.Context, r *aidomain.AIRequest) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.store[r.ID] = r
 	return nil
 }
