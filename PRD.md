@@ -98,6 +98,8 @@ All domain logic, application services, and API handlers must be developed test-
 | Browse/search words | ✓ | ✓ | ✓ |
 | View word detail | ✓ | ✓ | ✓ |
 | View example sentences | ✓ | ✓ | ✓ |
+| View AI-tagged definitions/examples | ✓ | ✓ | ✓ |
+| **AI translate (Banjar → Indonesian)** | ✓ | ✓ | ✓ |
 | Register / login | ✓ | — | — |
 | Bookmark words | ✗ | ✓ | ✓ |
 | Upvote / downvote word | ✗ | ✓ | ✓ |
@@ -105,14 +107,15 @@ All domain logic, application services, and API handlers must be developed test-
 | Submit definition contribution | ✗ | ✓ | ✓ |
 | Write comments/reviews | ✗ | ✓ | ✓ |
 | Edit own contributions (pending) | ✗ | ✓ | ✓ |
+| Flag content | ✗ | ✓ | ✓ |
 | Add word directly (no approval) | ✗ | ✗ | ✓ |
 | Edit any word directly | ✗ | ✗ | ✓ |
 | Approve / reject contributions | ✗ | ✗ | ✓ |
 | Delete words / definitions | ✗ | ✗ | ✓ |
-| Flag/unflag content | ✗ | ✓ | ✓ |
 | Manage users | ✗ | ✗ | ✓ |
 | View moderation queue | ✗ | ✗ | ✓ |
-| Trigger AI enrichment | ✗ | ✗ | ✓ |
+| Trigger AI enrichment / quality check | ✗ | ✗ | ✓ |
+| Review / approve AI enrichment output | ✗ | ✗ | ✓ |
 
 ---
 
@@ -242,17 +245,23 @@ All domain logic, application services, and API handlers must be developed test-
 
 ### 4.4 AI Context
 
-**Aggregate: `AIRequest`**
+**Aggregate: `AIRequest`** — only for admin-triggered, async enrichment jobs (translation is stateless, not stored)
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | UUID | — |
-| `type` | enum | `enrich_definition` \| `suggest_example` \| `translate` \| `quality_check` |
-| `target_word_id` | UUID | — |
-| `requested_by` | UUID | Admin ID |
+| `type` | enum | `enrich_definition` \| `suggest_example` \| `suggest_related` \| `quality_check` |
+| `target_word_id` | UUID | Word being enriched |
+| `target_contribution_id` | UUID? | Contribution being quality-checked |
+| `requested_by` | UUID | Admin user ID |
+| `model` | string | OpenRouter model ID used (e.g. `mistralai/mistral-7b-instruct:free`) |
 | `prompt` | string | Prompt sent to OpenRouter |
 | `response` | JSON? | Raw OpenRouter response |
+| `parsed_output` | JSON? | Structured extraction from response |
 | `status` | enum | `pending` \| `completed` \| `failed` |
+| `review_status` | enum | `unreviewed` \| `approved` \| `rejected` |
+| `reviewed_by` | UUID? | Admin who reviewed |
+| `reviewed_at` | datetime? | — |
 | `created_at` | datetime | — |
 
 ---
@@ -308,7 +317,13 @@ DELETE /comments/:id                 # Delete comment (own or admin)
 POST   /comments/:id/flag            # Flag comment (user)
 ```
 
-### 5.5 Identity Endpoints
+### 5.5 AI Endpoints (Public)
+
+```
+POST   /ai/translate                 # Translate Banjar text → Indonesian (guest + user)
+```
+
+### 5.6 Identity Endpoints
 
 ```
 POST   /auth/register                # Register new user
@@ -323,27 +338,32 @@ POST   /auth/forgot-password         # Send password reset email
 POST   /auth/reset-password          # Reset password with token
 ```
 
-### 5.6 Admin Endpoints
+### 5.7 Admin Endpoints
 
 ```
-GET    /admin/words                  # List all words including inactive
-POST   /admin/words                  # Create word directly
-PATCH  /admin/words/:id              # Update word directly
-DELETE /admin/words/:id              # Soft-delete word
+GET    /admin/words                          # List all words including inactive
+POST   /admin/words                          # Create word directly
+PATCH  /admin/words/:id                      # Update word directly
+DELETE /admin/words/:id                      # Soft-delete word
 
-GET    /admin/users                  # List users
-GET    /admin/users/:id              # Get user detail
-PATCH  /admin/users/:id/ban          # Ban user
-PATCH  /admin/users/:id/unban        # Unban user
-PATCH  /admin/users/:id/role         # Change user role
+GET    /admin/users                          # List users
+GET    /admin/users/:id                      # Get user detail
+PATCH  /admin/users/:id/ban                  # Ban user
+PATCH  /admin/users/:id/unban                # Unban user
+PATCH  /admin/users/:id/role                 # Change user role
 
-GET    /admin/moderation/queue       # Pending contributions
-GET    /admin/moderation/flags       # Flagged comments
-GET    /admin/moderation/stats       # Moderation statistics
+GET    /admin/moderation/queue               # Pending contributions
+GET    /admin/moderation/flags               # Flagged comments
+GET    /admin/moderation/stats               # Moderation statistics
 
-POST   /admin/ai/enrich/:word_id     # Trigger AI enrichment for word
-GET    /admin/ai/requests            # List AI request history
-GET    /admin/ai/requests/:id        # Get AI request detail
+POST   /admin/ai/enrich/:word_id             # Trigger definition enrichment job
+POST   /admin/ai/example/:word_id            # Trigger example suggestion job
+POST   /admin/ai/related/:word_id            # Trigger related word suggestion job
+POST   /admin/ai/check/:contribution_id      # Run quality check on a contribution
+GET    /admin/ai/requests                    # List AI request history (paginated)
+GET    /admin/ai/requests/:id                # Get AI request + parsed output
+PATCH  /admin/ai/requests/:id/approve        # Approve and merge AI output
+PATCH  /admin/ai/requests/:id/reject         # Reject AI output
 ```
 
 ### 5.7 Standard Response Format
@@ -392,9 +412,9 @@ GET    /admin/ai/requests/:id        # Get AI request detail
 
 ### 6.1 Dictionary Search
 
-- Full-text search on `banjar`, `latin`, and `meaning` fields
-- Filter by: `word_class`, `dialect`, `register`
-- Sort by: `alphabetical`, `most_voted`, `recently_added`
+- Full-text search on `banjar` and Indonesian `meaning` fields
+- Filter by: `word_class` (`n`, `v`, `a`, `adv`, `p`, `pb`, `ki`), `is_root`, `source`
+- Sort by: `alphabetical` (default), `most_voted`, `recently_added`
 - Pagination: default 20, max 100 per page
 
 ### 6.2 Contribution Workflow
@@ -439,18 +459,80 @@ User may withdraw while pending
 
 ### 6.6 AI Integration (OpenRouter)
 
-Triggered by admin only. Three use cases:
+**Model configuration:** OpenRouter model ID is set via `OPENROUTER_MODEL` environment variable. Defaults to a free-tier model (e.g. `mistralai/mistral-7b-instruct:free`). Can be swapped to any OpenRouter-supported model without code changes.
 
-| Type | Input | Output |
+#### AI Feature Tiers
+
+| Feature | Who can use | Approval required |
 |---|---|---|
-| `enrich_definition` | Word + existing definitions | Suggested additional definitions |
-| `suggest_example` | Word + definition | Suggested Banjar example + translation |
-| `quality_check` | Contributed payload | Consistency/quality score + notes |
+| Text translation (Banjar → Indonesian) | Guest, User, Admin | No — immediate response |
+| Word definition enrichment | Admin only | Yes — admin reviews before publish |
+| Example sentence suggestion | Admin only | Yes — admin reviews before publish |
+| Contribution quality check | Admin only | No — advisory output only |
+| Related word suggestion | Admin only | Yes — admin reviews before publish |
 
-- All AI output is stored as `AIRequest` with raw response
-- AI-generated content marked `source: ai_generated`
-- Admin must explicitly approve AI output before it becomes canonical
-- OpenRouter model configurable via environment variable
+#### 6.6.1 Translation (Public Feature)
+
+**The primary public-facing AI feature.** Any caller (including unauthenticated guests) can submit free-form Banjar Hulu text and receive an Indonesian translation.
+
+```
+POST /ai/translate
+```
+
+Request:
+```json
+{
+  "text": "inya kada kawa tulak ka pasar",
+  "context": "informal conversation"   // optional
+}
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "original": "inya kada kawa tulak ka pasar",
+    "translation": "dia tidak bisa pergi ke pasar",
+    "dialect": "hulu",
+    "model": "mistralai/mistral-7b-instruct:free",
+    "confidence": "high",
+    "notes": "Uses BBDH vocabulary: kada=tidak, kawa=bisa, tulak=pergi"
+  }
+}
+```
+
+- Stateless — results are NOT stored (no `AIRequest` record created)
+- Rate-limited: 10 req/hour per IP (guest), 30 req/hour per user
+- Context window: max 1000 characters of input text
+- Prompt instructs model to use the Banjar Hulu dialect specifically and output only the translation + brief lexical notes
+
+#### 6.6.2 Dictionary Enrichment (Admin-Only, Async)
+
+Admin triggers enrichment on a specific word. Output is stored as a pending `AIRequest` and surfaced in the admin panel for review before becoming canonical.
+
+| `type` | Input | Output | Approval needed |
+|---|---|---|---|
+| `enrich_definition` | Word + existing definitions | Suggested additional Indonesian definitions | Yes |
+| `suggest_example` | Word + definition | Suggested Banjar sentence + Indonesian translation | Yes |
+| `suggest_related` | Word + its definitions | List of suggested related Banjar words | Yes |
+| `quality_check` | Contribution payload | Structured report: accuracy score, flags, notes | No (advisory) |
+
+**Endpoints:**
+```
+POST   /admin/ai/enrich/:word_id            # Trigger enrichment job
+GET    /admin/ai/requests                   # List all AI requests (paginated)
+GET    /admin/ai/requests/:id               # Get AI request + response
+PATCH  /admin/ai/requests/:id/approve       # Approve and merge AI output
+PATCH  /admin/ai/requests/:id/reject        # Reject AI output
+POST   /admin/ai/contributions/:id/check    # Run quality_check on a contribution
+```
+
+#### 6.6.3 AI-Generated Content Visibility
+
+Per product decision: **AI-generated definitions and examples are visible to all users (including guests) without admin approval**, but are clearly labeled `source: ai_generated` in the API response. Admin approval promotes them to `source: contributed` or `source: seeded` status.
+
+Rationale: increases perceived content richness immediately while the admin works through the review queue.
 
 ### 6.7 Moderation Tools
 
@@ -464,15 +546,17 @@ Triggered by admin only. Three use cases:
 
 ## 7. Technical Requirements
 
-### 7.1 Stack (Recommended)
+### 7.1 Stack
 
 | Layer | Technology |
 |---|---|
 | Language | Go |
-| Framework | net/http + chi router (or Fiber) |
-| ORM / DB Layer | sqlc or GORM |
-| Database | PostgreSQL |
-| Auth | JWT (access + refresh token) |
+| Framework | Fiber |
+| DB Layer | sqlc |
+| Database | PostgreSQL 15+ |
+| Cache / Rate limiter | Redis |
+| Auth | JWT — access token (15 min) + refresh token stored in Redis (7 days) |
+| Email | SMTP (configurable provider via env) |
 | AI | OpenRouter HTTP API |
 | Testing | testify, gomock |
 | Migration | golang-migrate |
@@ -489,30 +573,70 @@ Triggered by admin only. Three use cases:
 
 ### 7.3 Authentication
 
-- JWT with short-lived access token (15 min) + refresh token (7 days)
-- Refresh token stored server-side (DB or Redis) for revocation
-- Email verification required for contribution privileges
+- JWT access token: 15-minute TTL, signed HS256
+- Refresh token: 7-day TTL, stored as opaque token in Redis (key: `refresh:<token_hash>`, value: `user_id`)
+- Logout invalidates refresh token immediately (Redis DEL)
+- Email verification required before contribution privileges are granted
+- Verification and password-reset tokens sent via SMTP; configurable via `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
 - Password: bcrypt, min cost factor 12
 
 ### 7.4 Rate Limiting
 
-| Endpoint Group | Limit |
-|---|---|
-| `GET /words*` (guest) | 60 req/min per IP |
-| `GET /words*` (auth) | 120 req/min per user |
-| `POST /contributions` | 10 req/hour per user |
-| `POST /auth/login` | 5 req/min per IP |
-| `POST /admin/ai/*` | 20 req/hour per admin |
+Redis-backed sliding window rate limiter (key: `ratelimit:<endpoint_group>:<identifier>`).
+
+| Endpoint Group | Limit | Key |
+|---|---|---|
+| `GET /words*` (guest) | 60 req/min | per IP |
+| `GET /words*` (auth) | 120 req/min | per user ID |
+| `POST /contributions` | 10 req/hour | per user ID |
+| `POST /auth/login` | 5 req/min | per IP |
+| `POST /ai/translate` (user) | 30 req/hour | per user ID |
+| `POST /ai/translate` (guest) | 10 req/hour | per IP |
+| `POST /admin/ai/*` | 50 req/hour | per admin ID |
 
 ### 7.5 Seeding
 
-- Initial dictionary data extracted from `docs/kamus-bahasa-banjar-dialek-hulu.pdf`
+- Initial dictionary data extracted from `.references/kamus-bahasa-banjar-dialek-hulu.pdf`
 - Extraction script: `scripts/seed/extract_dictionary.py` (requires `pdfminer.six`)
 - Produces `scripts/seed/seed_data.json` with ~2,200 root entries and ~5,000 total entries
 - Seeder inserts entries with `source: seeded`, `created_by: null` (system), `dialect: hulu`
 - Seeding is idempotent — upsert on `(banjar, dialect, homonym_number, root_word_id)`
 - PDF extraction has known OCR artefacts; human review of seed data recommended before first deploy
 - See [DICTIONARY_SPEC.md](DICTIONARY_SPEC.md) for entry format, word class definitions, and known extraction limitations
+
+### 7.6 Environment Variables
+
+```
+# App
+APP_PORT=8080
+APP_ENV=production
+
+# PostgreSQL
+DB_HOST=
+DB_PORT=5432
+DB_NAME=kamus_banjar
+DB_USER=
+DB_PASS=
+
+# Redis
+REDIS_ADDR=localhost:6379
+REDIS_PASS=
+
+# JWT
+JWT_SECRET=
+
+# SMTP
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=noreply@example.com
+
+# OpenRouter
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=mistralai/mistral-7b-instruct:free
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+```
 
 ---
 
@@ -568,12 +692,17 @@ kamus-banjar-api-2/
 │   ├── auth/           # JWT helpers
 │   ├── httperr/        # Error types and response helpers
 │   ├── pagination/
+│   ├── ratelimit/      # Redis sliding window rate limiter
 │   └── validator/
 ├── migrations/
 ├── scripts/
-│   └── seed/           # PDF parsing + seed logic
-├── docs/
+│   └── seed/           # PDF extraction + seed import
+│       ├── extract_dictionary.py
+│       ├── seed_data.json
+│       └── main.go     # Go seeder (reads seed_data.json → PostgreSQL)
+├── .references/
 │   └── kamus-bahasa-banjar-dialek-hulu.pdf
+├── DICTIONARY_SPEC.md
 └── PRD.md
 ```
 
@@ -618,10 +747,19 @@ API tests      → HTTP handlers (httptest)
 - Role promotion only by admin
 - Email uniqueness constraint
 
-**AI:**
-- Graceful failure when OpenRouter unavailable
-- AI output stored regardless of success/failure
-- Only admin can trigger AI requests
+**AI — translation (public):**
+- Guest and user can call `/ai/translate`
+- Input exceeding 1000 chars returns `VALIDATION_ERROR`
+- Rate limit enforced per IP (guest) and per user ID (auth)
+- OpenRouter unavailable → returns `AI_UNAVAILABLE`, not stored
+- Translation result is never persisted
+
+**AI — enrichment (admin async):**
+- Only admin can trigger enrichment jobs
+- Job stored as `AIRequest` with `status: pending` immediately
+- On OpenRouter failure: `AIRequest.status = failed`, raw error stored
+- Approved output merges into word's definitions/examples with `source: ai_generated`
+- Cannot approve an already-approved or rejected `AIRequest`
 
 ---
 
@@ -629,24 +767,27 @@ API tests      → HTTP handlers (httptest)
 
 | Phase | Scope |
 |---|---|
-| **Phase 1** | Identity context (auth, register, JWT), base project structure, DB migrations |
-| **Phase 2** | Dictionary context (seed, CRUD, search), public read API |
-| **Phase 3** | Community context (contributions, votes, bookmarks, comments) |
-| **Phase 4** | Moderation context (approval queue, flagging, admin tools) |
-| **Phase 5** | AI context (OpenRouter integration, enrichment, quality check) |
-| **Phase 6** | Hardening (rate limiting, audit log, coverage, docs) |
+| **Phase 1** | Project scaffold (Fiber, sqlc, golang-migrate), Identity context (register, email verify, login, JWT + Redis refresh token, password reset via SMTP) |
+| **Phase 2** | Dictionary context (PostgreSQL schema, seed import from `seed_data.json`, CRUD, full-text search, public read API) |
+| **Phase 3** | AI — Translation (`POST /ai/translate`, OpenRouter integration, Redis rate limiting, stateless response) |
+| **Phase 4** | Community context (contributions workflow, votes, bookmarks, comments, flagging) |
+| **Phase 5** | Moderation context (approval queue, bulk actions, user ban, audit log) |
+| **Phase 6** | AI — Enrichment (admin-async enrichment jobs: `enrich_definition`, `suggest_example`, `suggest_related`, `quality_check`, review/approve flow) |
+| **Phase 7** | Hardening (API docs/Swagger, coverage enforcement ≥80%, observability, deployment config) |
 
 ---
 
-## 12. Open Questions
+## 12. Technical Decisions Log
 
-| # | Question | Owner |
-|---|---|---|
-| 1 | Which Go web framework: chi vs Fiber? | Tech lead |
-| 2 | Use sqlc or GORM for DB layer? | Tech lead |
-| 3 | Redis required for refresh token store, or DB table sufficient? | Tech lead |
-| 4 | Which OpenRouter model default for Banjar language tasks? | Product |
-| 5 | Should AI-generated content be surfaced to guests or users before admin approval? | Product |
-| 6 | PDF parsing: manual data entry vs automated extraction script? | Tech lead |
-| 7 | Email provider for verification/notification emails? | Ops |
-| 8 | Rate limiting: in-process (memory) or Redis-backed? | Tech lead |
+Previously open questions, now resolved:
+
+| # | Decision | Choice | Rationale |
+|---|---|---|---|
+| 1 | Go web framework | **Fiber** | Preferred over chi |
+| 2 | DB query layer | **sqlc** | Type-safe generated queries, no ORM overhead |
+| 3 | Refresh token store | **Redis** | Instant revocation, TTL management built-in |
+| 4 | OpenRouter default model | **Flexible via env** | Default to a free-tier model (`OPENROUTER_MODEL`); swap without code change |
+| 5 | AI content visibility before approval | **Visible to all** | AI-tagged content shown to guests/users; labeled `source: ai_generated` |
+| 6 | PDF data entry | **Automated extraction** | `scripts/seed/extract_dictionary.py` → `seed_data.json` |
+| 7 | Email provider | **SMTP** | Configurable via `SMTP_*` env vars; bring your own provider |
+| 8 | Rate limiter backend | **Redis** | Consistent across instances, uses sliding window counters |
