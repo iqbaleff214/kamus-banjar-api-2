@@ -99,7 +99,7 @@ All domain logic, application services, and API handlers must be developed test-
 | View word detail | ✓ | ✓ | ✓ |
 | View example sentences | ✓ | ✓ | ✓ |
 | View AI-tagged definitions/examples | ✓ | ✓ | ✓ |
-| **AI translate (Banjar → Indonesian)** | ✓ | ✓ | ✓ |
+| **AI translate (Banjar → Indonesian)** | ✗ | ✓ | ✓ |
 | Register / login | ✓ | — | — |
 | Bookmark words | ✗ | ✓ | ✓ |
 | Upvote / downvote word | ✗ | ✓ | ✓ |
@@ -320,7 +320,7 @@ POST   /comments/:id/flag            # Flag comment (user)
 ### 5.5 AI Endpoints (Public)
 
 ```
-POST   /ai/translate                 # Translate Banjar text → Indonesian (guest + user)
+POST   /ai/translate                 # Translate Banjar text → Indonesian (user + admin only)
 ```
 
 ### 5.6 Identity Endpoints
@@ -465,15 +465,15 @@ User may withdraw while pending
 
 | Feature | Who can use | Approval required |
 |---|---|---|
-| Text translation (Banjar → Indonesian) | Guest, User, Admin | No — immediate response |
+| Text translation (Banjar → Indonesian) | User, Admin | No — immediate response |
 | Word definition enrichment | Admin only | Yes — admin reviews before publish |
 | Example sentence suggestion | Admin only | Yes — admin reviews before publish |
 | Contribution quality check | Admin only | No — advisory output only |
 | Related word suggestion | Admin only | Yes — admin reviews before publish |
 
-#### 6.6.1 Translation (Public Feature)
+#### 6.6.1 Translation (Auth Required)
 
-**The primary public-facing AI feature.** Any caller (including unauthenticated guests) can submit free-form Banjar Hulu text and receive an Indonesian translation.
+**The primary AI feature for authenticated users.** Requires a valid JWT. Guests must register and log in to use this feature.
 
 ```
 POST /ai/translate
@@ -590,13 +590,12 @@ Redis-backed sliding window rate limiter (key: `ratelimit:<endpoint_group>:<iden
 | `GET /words*` (auth) | 120 req/min | per user ID |
 | `POST /contributions` | 10 req/hour | per user ID |
 | `POST /auth/login` | 5 req/min | per IP |
-| `POST /ai/translate` (user) | 30 req/hour | per user ID |
-| `POST /ai/translate` (guest) | 10 req/hour | per IP |
+| `POST /ai/translate` | 30 req/hour | per user ID |
 | `POST /admin/ai/*` | 50 req/hour | per admin ID |
 
 ### 7.5 Seeding
 
-- Initial dictionary data extracted from `.references/kamus-bahasa-banjar-dialek-hulu.pdf`
+- Initial dictionary data extracted from `docs/kamus-bahasa-banjar-dialek-hulu.pdf`
 - Extraction script: `scripts/seed/extract_dictionary.py` (requires `pdfminer.six`)
 - Produces `scripts/seed/seed_data.json` with ~2,200 root entries and ~5,000 total entries
 - Seeder inserts entries with `source: seeded`, `created_by: null` (system), `dialect: hulu`
@@ -700,7 +699,7 @@ kamus-banjar-api-2/
 │       ├── extract_dictionary.py
 │       ├── seed_data.json
 │       └── main.go     # Go seeder (reads seed_data.json → PostgreSQL)
-├── .references/
+├── docs/
 │   └── kamus-bahasa-banjar-dialek-hulu.pdf
 ├── DICTIONARY_SPEC.md
 └── PRD.md
@@ -748,7 +747,7 @@ API tests      → HTTP handlers (httptest)
 - Email uniqueness constraint
 
 **AI — translation (public):**
-- Guest and user can call `/ai/translate`
+- Only authenticated users (user + admin) can call `/ai/translate`; guest returns `UNAUTHORIZED`
 - Input exceeding 1000 chars returns `VALIDATION_ERROR`
 - Rate limit enforced per IP (guest) and per user ID (auth)
 - OpenRouter unavailable → returns `AI_UNAVAILABLE`, not stored
