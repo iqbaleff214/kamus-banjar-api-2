@@ -31,3 +31,12 @@ RETURNING *;
 
 -- name: DeleteComment :exec
 DELETE FROM comments WHERE id = $1;
+
+-- name: ListFlaggedComments :many
+SELECT * FROM comments
+WHERE is_flagged = TRUE
+ORDER BY created_at ASC
+LIMIT $1 OFFSET $2;
+
+-- name: CountFlaggedComments :one
+SELECT COUNT(*)::int FROM comments WHERE is_flagged = TRUE;

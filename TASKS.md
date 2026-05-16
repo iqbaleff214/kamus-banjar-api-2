@@ -657,25 +657,25 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 5.1 — Moderation Domain
 
-- [ ] **5.1.1 — Define `AuditLog` entity**
+- [x] **5.1.1 — Define `AuditLog` entity**
   - **Description:** Implement `internal/moderation/domain/audit_log.go` with `AuditLog` struct: `id`, `actor_id` (admin), `action` (string enum: `approve_contribution`, `reject_contribution`, `ban_user`, `unban_user`, `change_role`, `delete_word`, `approve_ai`, `reject_ai`), `target_type`, `target_id`, `metadata` (JSON), `created_at`. `NewAuditLog(actorID, action, targetType, targetID string, metadata map[string]any) *AuditLog`.
   - **DoD:**
     - All defined action values are valid
     - Unknown action value returns domain error
 
-- [ ] **5.1.2 — Define `ModerationRepository` interface**
+- [x] **5.1.2 — Define `ModerationRepository` interface**
   - **Description:** Interface with: `GetPendingContributions(ctx, filter, page, perPage) ([]*Contribution, int, error)`, `GetFlaggedComments(ctx, page, perPage) ([]*Comment, int, error)`, `GetStats(ctx) (*ModerationStats, error)`, `CreateAuditLog(ctx, *AuditLog) error`.
 
 ---
 
 ### 5.2 — Moderation Infrastructure
 
-- [ ] **5.2.1 — Migration: `audit_logs` table**
+- [x] **5.2.1 — Migration: `audit_logs` table**
   - **Description:** Write `migrations/000005_create_moderation.up.sql` creating `audit_logs` table. Index on `actor_id`, `action`, `created_at`.
   - **DoD:**
     - Migration applies and reverts cleanly
 
-- [ ] **5.2.2 — sqlc: generate moderation queries**
+- [x] **5.2.2 — sqlc: generate moderation queries**
   - **Description:** Queries for pending contributions (status=pending, sorted by submitted_at ASC), flagged comments, moderation stats (counts), insert audit log. Implement `PostgresModerationRepository`.
   - **Tests (integration):**
     - `TestGetPendingContributions_FilterByType`
@@ -685,7 +685,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 5.3 — Moderation Application
 
-- [ ] **5.3.1 — `ApproveContribution` command**
+- [x] **5.3.1 — `ApproveContribution` command**
   - **Description:** Implement `ApproveContribution(ctx, adminID, contributionID, note string) error`. Loads contribution, calls `contribution.Approve()`, merges payload into dictionary (creates Word, Definition, or Example depending on contribution type), persists contribution update, writes `AuditLog`.
   - **DoD:**
     - `new_word` contribution: creates a new Word with `source: contributed`
@@ -700,7 +700,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestApproveContribution_NonPending_Conflict`
     - `TestApproveContribution_WritesAuditLog`
 
-- [ ] **5.3.2 — `RejectContribution` command**
+- [x] **5.3.2 — `RejectContribution` command**
   - **Description:** `RejectContribution(ctx, adminID, contributionID, note string) error`. Note is required. Writes audit log.
   - **DoD:**
     - Empty note → `VALIDATION_ERROR`
@@ -710,7 +710,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestRejectContribution_EmptyNote`
     - `TestRejectContribution_WritesAuditLog`
 
-- [ ] **5.3.3 — `BanUser` and `UnbanUser` commands**
+- [x] **5.3.3 — `BanUser` and `UnbanUser` commands**
   - **Description:** `BanUser(ctx, adminID, targetUserID, reason string) error` — cannot ban another admin. `UnbanUser(ctx, adminID, targetUserID string) error`. Both write audit log.
   - **DoD:**
     - Admin cannot ban another admin → `FORBIDDEN`
@@ -721,7 +721,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestBanUser_WritesAuditLog`
     - `TestUnbanUser_NotBanned_Idempotent`
 
-- [ ] **5.3.4 — `ChangeUserRole` command**
+- [x] **5.3.4 — `ChangeUserRole` command**
   - **Description:** `ChangeUserRole(ctx, adminID, targetUserID string, role Role) error`. Admin cannot demote themselves.
   - **DoD:**
     - Admin demoting themselves → `FORBIDDEN`
@@ -734,7 +734,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 5.4 — Moderation HTTP
 
-- [ ] **5.4.1 — Admin moderation and user management routes**
+- [x] **5.4.1 — Admin moderation and user management routes**
   - **Description:** Register all admin endpoints from OAS §5.7 under `/api/v2/admin`. All require `RequireRole("admin")`. Wire to moderation application commands.
   - **DoD:**
     - `GET /admin/moderation/queue` returns pending contributions paginated

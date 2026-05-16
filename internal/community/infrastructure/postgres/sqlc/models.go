@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 type CommentTargetType string
@@ -441,6 +442,16 @@ func (ns NullWordStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.WordStatus), nil
+}
+
+type AuditLog struct {
+	ID         uuid.UUID             `db:"id" json:"id"`
+	ActorID    uuid.UUID             `db:"actor_id" json:"actor_id"`
+	Action     string                `db:"action" json:"action"`
+	TargetType string                `db:"target_type" json:"target_type"`
+	TargetID   uuid.UUID             `db:"target_id" json:"target_id"`
+	Metadata   pqtype.NullRawMessage `db:"metadata" json:"metadata"`
+	CreatedAt  time.Time             `db:"created_at" json:"created_at"`
 }
 
 type Bookmark struct {

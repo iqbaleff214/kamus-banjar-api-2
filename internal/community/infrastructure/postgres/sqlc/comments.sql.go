@@ -27,6 +27,17 @@ func (q *Queries) CountCommentsByTarget(ctx context.Context, arg CountCommentsBy
 	return column_1, err
 }
 
+const countFlaggedComments = `-- name: CountFlaggedComments :one
+SELECT COUNT(*)::int FROM comments WHERE is_flagged = TRUE
+`
+
+func (q *Queries) CountFlaggedComments(ctx context.Context) (int32, error) {
+	row := q.db.QueryRowContext(ctx, countFlaggedComments)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createComment = `-- name: CreateComment :one
 INSERT INTO comments (id, user_id, target_type, target_id, body, is_flagged, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, FALSE, NOW(), NOW())
@@ -137,6 +148,50 @@ func (q *Queries) ListCommentsByTarget(ctx context.Context, arg ListCommentsByTa
 		arg.Limit,
 		arg.Offset,
 	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Comment{}
+	for rows.Next() {
+		var i Comment
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Body,
+			&i.IsFlagged,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFlaggedComments = `-- name: ListFlaggedComments :many
+SELECT id, user_id, target_type, target_id, body, is_flagged, created_at, updated_at FROM comments
+WHERE is_flagged = TRUE
+ORDER BY created_at ASC
+LIMIT $1 OFFSET $2
+`
+
+type ListFlaggedCommentsParams struct {
+	Limit  int32 `db:"limit" json:"limit"`
+	Offset int32 `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListFlaggedComments(ctx context.Context, arg ListFlaggedCommentsParams) ([]Comment, error) {
+	rows, err := q.db.QueryContext(ctx, listFlaggedComments, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

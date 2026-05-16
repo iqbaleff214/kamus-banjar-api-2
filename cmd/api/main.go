@@ -28,6 +28,9 @@ import (
 	identityhttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/http"
 	identityinfra "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/infrastructure/postgres"
 	redisstore "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/infrastructure/redis"
+	moderationcmd "github.com/iqbaleff214/kamus-banjar-api-2/internal/moderation/application/commands"
+	moderationhttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/moderation/http"
+	moderationinfra "github.com/iqbaleff214/kamus-banjar-api-2/internal/moderation/infrastructure/postgres"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/cache"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/config"
@@ -119,6 +122,10 @@ func main() {
 
 	communityHandler := communityhttp.NewHandler(contribSvc, voteSvc, bookmarkSvc, commentSvc)
 	communityhttp.RegisterRoutes(app, communityHandler, ratelimit.NewRedisCounter(redis))
+
+	modRepo := moderationinfra.NewPostgresModerationRepository(pool)
+	moderationSvc := moderationcmd.NewModerationService(modRepo, contribRepo, wordRepo, userRepo)
+	moderationhttp.RegisterRoutes(app, moderationhttp.NewHandler(moderationSvc))
 
 	aiClient, err := openrouterclient.New(cfg)
 	if err != nil {
