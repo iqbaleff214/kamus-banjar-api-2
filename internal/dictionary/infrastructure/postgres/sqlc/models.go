@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.30.0
 
-package sqlcidentity
+package sqlcdictionary
 
 import (
 	"database/sql"

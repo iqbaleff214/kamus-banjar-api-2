@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS word_relations;
+DROP TABLE IF EXISTS examples;
+DROP TABLE IF EXISTS definitions;
+DROP TABLE IF EXISTS words;
+DROP TYPE IF EXISTS word_status;
+DROP TYPE IF EXISTS word_source;
+DROP TYPE IF EXISTS dialect;
+DROP TYPE IF EXISTS word_class;

@@ -14,6 +14,10 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
 
+	dictcmd "github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/application/commands"
+	dictqry "github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/application/queries"
+	dictinfra "github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/infrastructure/postgres"
+	dicthttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/http"
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/application/commands"
 	identityinfra "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/infrastructure/postgres"
 	redisstore "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/infrastructure/redis"
@@ -87,6 +91,11 @@ func main() {
 	})
 
 	identityhttp.RegisterRoutes(app, identityHandler)
+
+	wordRepo := dictinfra.NewPostgresWordRepository(pool)
+	wordQry := dictqry.NewWordQueryService(wordRepo)
+	wordCmd := dictcmd.NewWordCommandService(wordRepo)
+	dicthttp.RegisterRoutes(app, dicthttp.NewHandler(wordQry, wordCmd))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

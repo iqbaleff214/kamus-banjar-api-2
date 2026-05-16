@@ -252,7 +252,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 2.1 — Dictionary Domain
 
-- [ ] **2.1.1 — Define `WordClass`, `Dialect`, `Source` value types**
+- [x] **2.1.1 — Define `WordClass`, `Dialect`, `Source` value types**
   - **Description:** Implement `internal/dictionary/domain/value_objects.go` with typed constants for `WordClass` (`n`, `v`, `a`, `adv`, `p`, `pb`, `ki`), `Dialect` (`hulu`), `Source` (`seeded`, `contributed`, `ai_generated`), and `WordStatus` (`active`, `deprecated`). Each type must have a `Validate() error` method.
   - **DoD:**
     - Unknown `WordClass` value returns a domain error
@@ -262,7 +262,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestWordClass_Invalid` — `"x"` returns error
     - `TestDialect_OnlyHulu` — `"kuala"` returns error (out of scope for v2)
 
-- [ ] **2.1.2 — Define `Definition` and `Example` value objects**
+- [x] **2.1.2 — Define `Definition` and `Example` value objects**
   - **Description:** Implement `internal/dictionary/domain/definition.go` and `example.go`. `Definition` has: `id`, `meaning` (max 2000 chars), `sort_order`, `source`, `upvotes`, `downvotes`. `NetScore() int` method. `Example` has: `id`, `banjar_sentence`, `indonesian_translation`, `source`.
   - **DoD:**
     - `meaning` exceeding 2000 chars returns domain error on construction
@@ -271,7 +271,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestDefinition_MeaningTooLong`
     - `TestDefinition_NetScore` — upvotes=5, downvotes=2 → NetScore=3
 
-- [ ] **2.1.3 — Define `Word` aggregate**
+- [x] **2.1.3 — Define `Word` aggregate**
   - **Description:** Implement `internal/dictionary/domain/word.go` with the `Word` aggregate (all fields from PRD §4.1). Domain methods: `NewWord(banjar, wordClass, dialect string) (*Word, error)` (validates required fields), `AddDefinition(meaning string, sortOrder int) error`, `AddExample(banjar, indonesian string) error`, `Deprecate()`, `Restore()`, `SoftDelete()`. Derived field `IsDeleted() bool`.
   - **DoD:**
     - `NewWord` with empty `banjar` returns error
@@ -285,7 +285,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestAddDefinition_TooLong`
     - `TestDeprecateAndRestore`
 
-- [ ] **2.1.4 — Define `WordRepository` interface**
+- [x] **2.1.4 — Define `WordRepository` interface**
   - **Description:** Implement `internal/dictionary/domain/repository.go` with `WordRepository` interface: `Create(ctx, *Word) error`, `FindByID(ctx, id) (*Word, error)`, `FindAll(ctx, filter WordFilter, page, perPage int) ([]*Word, int, error)`, `Search(ctx, query string, filter WordFilter, page, perPage int) ([]*Word, int, error)`, `Update(ctx, *Word) error`, `SoftDelete(ctx, id) error`. Define `WordFilter` struct with `WordClass`, `IsRoot *bool`, `Source`, `Status` fields.
   - **DoD:**
     - Interface compiles; no implementation yet
@@ -294,7 +294,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 2.2 — Dictionary Infrastructure
 
-- [ ] **2.2.1 — Migration: `words`, `definitions`, `examples`, `word_relations` tables**
+- [x] **2.2.1 — Migration: `words`, `definitions`, `examples`, `word_relations` tables**
   - **Description:** Write `migrations/000003_create_dictionary.up.sql` creating:
     - `words` table with all fields from PRD §4.1, `deleted_at` for soft delete
     - `definitions` table with FK to `words`
@@ -308,7 +308,7 @@ and the unit/integration tests required before implementation is considered comp
     - All indexes visible in `\d words` in psql
     - Unique constraint enforced by DB
 
-- [ ] **2.2.2 — sqlc: generate Word queries**
+- [x] **2.2.2 — sqlc: generate Word queries**
   - **Description:** Write SQL queries in `internal/dictionary/infrastructure/postgres/queries/` for: `CreateWord`, `GetWordByID`, `ListWords` (with filter + pagination), `SearchWords` (full-text on `banjar` and `definitions.meaning`), `UpdateWord`, `SoftDeleteWord`, `GetDefinitionsByWordID`, `GetExamplesByWordID`, `GetRelatedWords`. Run `sqlc generate`.
   - **DoD:**
     - `sqlc generate` succeeds with no warnings
@@ -326,7 +326,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 2.3 — Seed Data Import
 
-- [ ] **2.3.1 — Go seeder: import `seed_data.json` into PostgreSQL**
+- [x] **2.3.1 — Go seeder: import `seed_data.json` into PostgreSQL**
   - **Description:** Implement `scripts/seed/main.go`. Reads `scripts/seed/seed_data.json`, iterates entries, upserts words using the `WordRepository`. Root words are inserted first; derived forms inserted after with `root_word_id` set. Upsert key: `(banjar, dialect, homonym_number, is_root, root_word_id)`. On conflict: update `definitions`, `examples`, `word_class`, `updated_at`. Sets `source = seeded`, `created_by = NULL`. Idempotent.
   - **DoD:**
     - `make seed` runs without error on empty DB
@@ -341,7 +341,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 2.4 — Dictionary Application
 
-- [ ] **2.4.1 — `GetWord` query**
+- [x] **2.4.1 — `GetWord` query**
   - **Description:** Implement `internal/dictionary/application/queries/get_word.go` with `GetWord(ctx, id string) (*Word, error)`. Returns only `status: active` words (unless caller is admin, handled at HTTP layer by using the admin repository variant).
   - **DoD:**
     - Unknown ID → `NOT_FOUND`
@@ -351,7 +351,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestGetWord_NotFound`
     - `TestGetWord_SoftDeleted` — returns not found
 
-- [ ] **2.4.2 — `ListWords` and `SearchWords` queries**
+- [x] **2.4.2 — `ListWords` and `SearchWords` queries**
   - **Description:** Implement `ListWords(ctx, filter, page, perPage int) ([]*Word, PaginationMeta, error)` and `SearchWords(ctx, query string, filter, page, perPage) ([]*Word, PaginationMeta, error)`. `SearchWords` falls back to `ListWords` when `query` is empty.
   - **DoD:**
     - Results respect `word_class`, `is_root`, `source` filters
@@ -365,7 +365,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestSearchWords_ReturnsRelevantResults`
     - `TestSearchWords_EmptyQuery_FallsbackToList`
 
-- [ ] **2.4.3 — `CreateWord`, `UpdateWord`, `DeleteWord` commands (admin)**
+- [x] **2.4.3 — `CreateWord`, `UpdateWord`, `DeleteWord` commands (admin)**
   - **Description:** Implement admin commands: `CreateWord(ctx, adminID, input WordInput) (*Word, error)` (sets `source: seeded`, `created_by: adminID`), `UpdateWord(ctx, adminID, wordID, input WordInput) (*Word, error)`, `SoftDeleteWord(ctx, wordID) error`. These bypass the contribution workflow.
   - **DoD:**
     - Creating a word with duplicate banjar+dialect+homonym returns `CONFLICT`
@@ -379,7 +379,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 2.5 — Dictionary HTTP
 
-- [ ] **2.5.1 — Public dictionary routes**
+- [x] **2.5.1 — Public dictionary routes**
   - **Description:** Implement `internal/dictionary/http/routes.go` registering public endpoints from OAS §5.2 under `/api/v2`. No auth required. Apply rate limit middleware: 60 req/min per IP (guest), 120 req/min per user (if token present).
   - **DoD:**
     - `GET /words` returns paginated list with `success: true` and `meta`
@@ -401,7 +401,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestGetExamplesHandler_200`
     - `TestGetRelatedWordsHandler_200`
 
-- [ ] **2.5.2 — Admin word management routes**
+- [x] **2.5.2 — Admin word management routes**
   - **Description:** Register admin word endpoints from OAS §5.7 under `/api/v2/admin/words`. Require `RequireAuth()` + `RequireRole("admin")` middleware on all routes.
   - **DoD:**
     - Non-admin → 403
