@@ -17,7 +17,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 1.1 — Project Scaffold
 
-- [ ] **1.1.1 — Initialise Go module and directory structure**
+- [x] **1.1.1 — Initialise Go module and directory structure**
   - **Description:** Create the Go module (`go mod init`), set up the folder tree from PRD §9 (`cmd/api`, `internal/*`, `pkg/*`, `migrations/`, `scripts/`), add `.env.example` with all variables from PRD §7.6, and add a root `Makefile` with targets: `run`, `test`, `migrate-up`, `migrate-down`, `seed`, `lint`.
   - **DoD:**
     - `go build ./...` succeeds with no errors
@@ -25,7 +25,7 @@ and the unit/integration tests required before implementation is considered comp
     - `Makefile` has all six targets defined
     - Repository root matches the directory tree in PRD §9
 
-- [ ] **1.1.2 — Configure Fiber application entrypoint**
+- [x] **1.1.2 — Configure Fiber application entrypoint**
   - **Description:** Wire up the Fiber app in `cmd/api/main.go`. Load config from env (using a `pkg/config` package). Register a health-check route `GET /health` returning `{ "status": "ok" }`. Set Fiber options: `BodyLimit: 1MB`, `ReadTimeout: 10s`, `WriteTimeout: 10s`.
   - **DoD:**
     - `GET /health` returns HTTP 200 with `{ "status": "ok" }`
@@ -35,7 +35,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestHealthCheck` — GET `/health` returns 200 and correct body
     - `TestBodyLimitEnforced` — POST with 2 MB body returns 413
 
-- [ ] **1.1.3 — Set up PostgreSQL connection and golang-migrate**
+- [x] **1.1.3 — Set up PostgreSQL connection and golang-migrate**
   - **Description:** Create `pkg/database` with a `Connect()` function returning a `*pgxpool.Pool`. Add `migrations/` directory. Write migration `000001_create_extensions.up.sql` enabling `uuid-ossp` and `pg_trgm` extensions.
   - **DoD:**
     - `make migrate-up` runs without error against a local PostgreSQL instance
@@ -44,7 +44,7 @@ and the unit/integration tests required before implementation is considered comp
   - **Tests:**
     - `TestDatabaseConnection` — integration test: pool pings DB successfully
 
-- [ ] **1.1.4 — Set up Redis connection**
+- [x] **1.1.4 — Set up Redis connection**
   - **Description:** Create `pkg/cache` with a `Connect()` function returning a `*redis.Client` (using `go-redis/v9`). Validate connection on startup.
   - **DoD:**
     - App exits with a clear error if Redis is unreachable on startup
@@ -52,7 +52,7 @@ and the unit/integration tests required before implementation is considered comp
   - **Tests:**
     - `TestRedisConnection` — integration test: PING returns PONG
 
-- [ ] **1.1.5 — Implement shared response envelopes and error types**
+- [x] **1.1.5 — Implement shared response envelopes and error types**
   - **Description:** Implement `pkg/httperr` with: `ErrorResponse` struct (`success: false`, `error.code`, `error.message`, `error.details`), `SuccessResponse` struct (`success: true`, `data`, `meta`), `PaginationMeta` struct, and typed error constructors for every error code in OAS §components/schemas/ErrorBody (`VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `AI_UNAVAILABLE`, `INTERNAL_ERROR`).
   - **DoD:**
     - All error constructors produce JSON matching the OAS error schema exactly
@@ -61,7 +61,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestErrorResponseShape` — each constructor produces correct `code` and HTTP status
     - `TestSuccessResponseShape` — `data` and `meta` are correctly nested
 
-- [ ] **1.1.6 — Implement pagination helper**
+- [x] **1.1.6 — Implement pagination helper**
   - **Description:** Implement `pkg/pagination` with `ParseParams(c *fiber.Ctx) (page, perPage int, err error)` that reads `page` and `per_page` query params, defaults page=1 and per_page=20, enforces per_page ≤ 100, and computes the SQL `LIMIT`/`OFFSET`.
   - **DoD:**
     - `per_page > 100` is clamped or rejected with `VALIDATION_ERROR`
@@ -71,7 +71,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestPaginationMaxPerPage` — per_page=200 returns error or clamps to 100
     - `TestPaginationOffset` — page=3, per_page=20 returns offset=40
 
-- [ ] **1.1.7 — Implement JWT middleware and `pkg/auth`**
+- [x] **1.1.7 — Implement JWT middleware and `pkg/auth`**
   - **Description:** Implement `pkg/auth` with: `GenerateAccessToken(userID, role string) (string, error)` (HS256, 15-min TTL), `ParseToken(token string) (*Claims, error)`, and a Fiber middleware `RequireAuth()` that reads the `Authorization: Bearer` header, validates the token, and injects `Claims` into `c.Locals`. Implement `RequireRole(roles ...string)` middleware that reads claims and returns 403 if role is not in the allowed list.
   - **DoD:**
     - Missing token → 401 with `UNAUTHORIZED`
@@ -88,7 +88,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 1.2 — Identity Domain
 
-- [ ] **1.2.1 — Define `User` aggregate and value objects**
+- [x] **1.2.1 — Define `User` aggregate and value objects**
   - **Description:** Implement `internal/identity/domain/user.go` with the `User` struct (fields from PRD §4.3), the `Role` value type (`user`, `admin`), and domain methods: `NewUser(name, email, password string) (*User, error)` (validates fields, hashes password with bcrypt cost 12), `VerifyPassword(plain string) bool`, `Promote(role Role) error` (only admin role allowed), `Ban()`, `Unban()`.
   - **DoD:**
     - `NewUser` rejects empty name, invalid email, password shorter than 8 chars
@@ -102,7 +102,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestPromote_InvalidRole` — returns error
     - `TestBanUnban` — toggles `is_active` correctly
 
-- [ ] **1.2.2 — Define `UserRepository` interface**
+- [x] **1.2.2 — Define `UserRepository` interface**
   - **Description:** Implement `internal/identity/domain/repository.go` with interface `UserRepository` containing: `Create(ctx, *User) error`, `FindByID(ctx, id UUID) (*User, error)`, `FindByEmail(ctx, email string) (*User, error)`, `Update(ctx, *User) error`.
   - **DoD:**
     - Interface defined; no implementation yet
@@ -112,14 +112,14 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 1.3 — Identity Infrastructure
 
-- [ ] **1.3.1 — Migration: `users` table**
+- [x] **1.3.1 — Migration: `users` table**
   - **Description:** Write `migrations/000002_create_users.up.sql` creating the `users` table with all fields from PRD §4.3. Add unique index on `email`. Write the corresponding `.down.sql`.
   - **DoD:**
     - `make migrate-up` creates the table
     - `make migrate-down` drops it cleanly
     - Unique constraint on `email` verified by DB
 
-- [ ] **1.3.2 — sqlc: generate User queries**
+- [x] **1.3.2 — sqlc: generate User queries**
   - **Description:** Write `internal/identity/infrastructure/postgres/queries/users.sql` with named queries: `CreateUser`, `GetUserByID`, `GetUserByEmail`, `UpdateUser`. Run `sqlc generate` to produce Go types. Implement `PostgresUserRepository` satisfying `UserRepository`.
   - **DoD:**
     - `sqlc generate` produces type-safe Go code with no errors
@@ -130,7 +130,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestEmailUniqueness` — second insert with same email returns conflict error
     - `TestUpdateUser` — change to `name` persists
 
-- [ ] **1.3.3 — Redis token store**
+- [x] **1.3.3 — Redis token store**
   - **Description:** Implement `internal/identity/infrastructure/redis/token_store.go` with: `StoreRefreshToken(ctx, token, userID string, ttl time.Duration) error`, `GetUserIDByRefreshToken(ctx, token string) (string, error)`, `RevokeRefreshToken(ctx, token string) error`. Key pattern: `refresh:<sha256(token)>`.
   - **DoD:**
     - Store → Get round-trip returns correct user ID
@@ -141,7 +141,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestRevokeRefreshToken`
     - `TestExpiredRefreshToken`
 
-- [ ] **1.3.4 — SMTP email sender**
+- [x] **1.3.4 — SMTP email sender**
   - **Description:** Implement `pkg/mailer` with interface `Mailer { SendVerificationEmail(to, token string) error; SendPasswordResetEmail(to, token string) error }` and a `SMTPMailer` implementation reading `SMTP_*` env vars. Use Go's `net/smtp` or `gomail.v2`.
   - **DoD:**
     - Both methods send email with the token embedded in a link
@@ -153,7 +153,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 1.4 — Identity Application
 
-- [ ] **1.4.1 — `RegisterUser` command**
+- [x] **1.4.1 — `RegisterUser` command**
   - **Description:** Implement `internal/identity/application/commands/register_user.go` with `RegisterUser(ctx, name, email, password, passwordConfirmation string) (*User, error)`. Validates passwords match, calls `NewUser`, calls `UserRepository.Create`, generates a verification token (random 32-byte hex), stores it in Redis with 24-hour TTL (`verify:<token>` → `user_id`), calls `Mailer.SendVerificationEmail`.
   - **DoD:**
     - Duplicate email returns `CONFLICT`
@@ -164,7 +164,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestRegisterUser_DuplicateEmail` — returns conflict error
     - `TestRegisterUser_PasswordMismatch` — returns validation error
 
-- [ ] **1.4.2 — `VerifyEmail` command**
+- [x] **1.4.2 — `VerifyEmail` command**
   - **Description:** Implement `VerifyEmail(ctx, token string) error`. Looks up `verify:<token>` in Redis, sets `email_verified_at` on the user, updates in DB, deletes Redis key.
   - **DoD:**
     - Invalid/expired token returns `UNAUTHORIZED`
@@ -174,7 +174,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestVerifyEmail_InvalidToken`
     - `TestVerifyEmail_AlreadyVerified` — idempotent (no error)
 
-- [ ] **1.4.3 — `LoginUser` command**
+- [x] **1.4.3 — `LoginUser` command**
   - **Description:** Implement `LoginUser(ctx, email, password string) (accessToken, refreshToken string, err error)`. Finds user by email, verifies password, generates access token via `pkg/auth`, generates a random refresh token, stores it via `TokenStore.StoreRefreshToken` with 7-day TTL.
   - **DoD:**
     - Wrong email → `UNAUTHORIZED`
@@ -187,7 +187,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestLoginUser_WrongPassword`
     - `TestLoginUser_BannedUser`
 
-- [ ] **1.4.4 — `RefreshToken` command**
+- [x] **1.4.4 — `RefreshToken` command**
   - **Description:** Implement `RefreshToken(ctx, refreshToken string) (newAccessToken, newRefreshToken string, err error)`. Validates existing refresh token, issues new pair, revokes old refresh token (rotation).
   - **DoD:**
     - Invalid/expired refresh token → `UNAUTHORIZED`
@@ -196,14 +196,14 @@ and the unit/integration tests required before implementation is considered comp
     - `TestRefreshToken_ValidRotation`
     - `TestRefreshToken_ReuseOldToken` — second use of old token returns unauthorized
 
-- [ ] **1.4.5 — `LogoutUser` command**
+- [x] **1.4.5 — `LogoutUser` command**
   - **Description:** Implement `LogoutUser(ctx, refreshToken string) error`. Calls `TokenStore.RevokeRefreshToken`.
   - **DoD:**
     - After logout, refresh token can no longer be used
   - **Tests:**
     - `TestLogoutUser_TokenRevoked`
 
-- [ ] **1.4.6 — `ForgotPassword` and `ResetPassword` commands**
+- [x] **1.4.6 — `ForgotPassword` and `ResetPassword` commands**
   - **Description:** `ForgotPassword(ctx, email string) error` — finds user, generates reset token, stores in Redis (`reset:<token>` → `user_id`, 1-hour TTL), sends email. Always returns success (no user enumeration). `ResetPassword(ctx, token, password, passwordConfirmation string) error` — validates token, hashes new password, updates user, revokes token.
   - **DoD:**
     - Unknown email: no error returned, no email sent (silent)
@@ -214,7 +214,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestResetPassword_ValidToken`
     - `TestResetPassword_ExpiredToken`
 
-- [ ] **1.4.7 — `UpdateProfile` and `ChangePassword` commands**
+- [x] **1.4.7 — `UpdateProfile` and `ChangePassword` commands**
   - **Description:** `UpdateProfile(ctx, userID, name string) (*User, error)`. `ChangePassword(ctx, userID, currentPassword, newPassword string) error` — verifies current password before updating.
   - **DoD:**
     - Wrong current password → `UNAUTHORIZED`
@@ -227,7 +227,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 1.5 — Identity HTTP
 
-- [ ] **1.5.1 — Auth routes and handlers**
+- [x] **1.5.1 — Auth routes and handlers**
   - **Description:** Implement `internal/identity/http/routes.go` registering all auth endpoints from OAS §5.6 on the Fiber app under `/api/v2/auth`. Implement handlers that call the application commands and return responses matching OAS schemas exactly.
   - **DoD:**
     - All 10 auth endpoints exist and return correct HTTP status codes
