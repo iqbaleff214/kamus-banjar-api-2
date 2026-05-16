@@ -34,9 +34,9 @@ func New(cfg *config.Config) (*Client, error) {
 
 // openRouterRequest is the wire format sent to OpenRouter.
 type openRouterRequest struct {
-	Model       string          `json:"model"`
+	Model       string           `json:"model"`
 	Messages    []domain.Message `json:"messages"`
-	Temperature float64         `json:"temperature"`
+	Temperature float64          `json:"temperature"`
 }
 
 // openRouterResponse is the wire format received from OpenRouter.
@@ -72,7 +72,7 @@ func (c *Client) Complete(ctx context.Context, req domain.CompletionRequest) (*d
 	if err != nil {
 		return nil, domain.ErrAIUnavailable
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, domain.ErrAIUnavailable

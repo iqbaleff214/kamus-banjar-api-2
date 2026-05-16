@@ -153,7 +153,7 @@ func userToken(t *testing.T) string {
 
 func decodeJSON(t *testing.T, body io.ReadCloser, out interface{}) {
 	t.Helper()
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	require.NoError(t, json.NewDecoder(body).Decode(out))
 }
 

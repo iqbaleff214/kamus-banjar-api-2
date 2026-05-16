@@ -53,7 +53,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("redis: %v", err)
 	}
-	defer redis.Close()
+	defer func() { _ = redis.Close() }()
 
 	var mail mailer.Mailer
 	if cfg.SMTPHost != "" {

@@ -3,10 +3,10 @@ package domain
 import "github.com/google/uuid"
 
 type Example struct {
-	ID                  uuid.UUID
-	BanjarSentence      string
+	ID                    uuid.UUID
+	BanjarSentence        string
 	IndonesianTranslation string
-	Source              Source
+	Source                Source
 }
 
 func NewExample(banjar, indonesian string, source Source) *Example {

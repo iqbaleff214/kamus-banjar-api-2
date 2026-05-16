@@ -238,7 +238,7 @@ func loadSeedFile(path string) (*seedFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	var data seedFile
 	return &data, json.NewDecoder(f).Decode(&data)
 }

@@ -46,7 +46,7 @@ func TestOpenRouterClient_Success(t *testing.T) {
 		assert.Equal(t, "Bearer test-key", r.Header.Get("Authorization"))
 		assert.Equal(t, "Kamus Banjar API", r.Header.Get("X-Title"))
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(validResponse())
+		_ = json.NewEncoder(w).Encode(validResponse())
 	}))
 	defer srv.Close()
 
@@ -78,7 +78,7 @@ func TestOpenRouterClient_NetworkError(t *testing.T) {
 		// close connection immediately without response
 		if h, ok := w.(http.Hijacker); ok {
 			conn, _, _ := h.Hijack()
-			conn.Close()
+			_ = conn.Close()
 		}
 	}))
 	defer srv.Close()
