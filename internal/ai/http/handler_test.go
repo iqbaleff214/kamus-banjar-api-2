@@ -54,7 +54,7 @@ func newApp(llm domain.LLMClient, counter ratelimit.Counter) *fiber.App {
 	svc := commands.NewTranslateService(llm, "test-model")
 	h := aihttp.NewHandler(svc)
 	app := fiber.New()
-	aihttp.RegisterRoutes(app, h, counter)
+	aihttp.RegisterRoutes(app, h, (*aihttp.AdminHandler)(nil), counter)
 	return app
 }
 

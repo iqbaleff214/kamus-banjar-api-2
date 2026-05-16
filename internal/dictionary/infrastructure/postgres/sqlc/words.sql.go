@@ -144,6 +144,35 @@ func (q *Queries) CreateWord(ctx context.Context, arg CreateWordParams) (Word, e
 	return i, err
 }
 
+const getWordByBanjar = `-- name: GetWordByBanjar :one
+SELECT id, banjar, banjar_syllabified, dialect, word_class, homonym_number, is_root, root_word_id, status, source, source_reference, created_by, created_at, updated_at, deleted_at FROM words
+WHERE banjar = $1 AND deleted_at IS NULL
+LIMIT 1
+`
+
+func (q *Queries) GetWordByBanjar(ctx context.Context, banjar string) (Word, error) {
+	row := q.db.QueryRowContext(ctx, getWordByBanjar, banjar)
+	var i Word
+	err := row.Scan(
+		&i.ID,
+		&i.Banjar,
+		&i.BanjarSyllabified,
+		&i.Dialect,
+		&i.WordClass,
+		&i.HomonymNumber,
+		&i.IsRoot,
+		&i.RootWordID,
+		&i.Status,
+		&i.Source,
+		&i.SourceReference,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const getWordByID = `-- name: GetWordByID :one
 SELECT id, banjar, banjar_syllabified, dialect, word_class, homonym_number, is_root, root_word_id, status, source, source_reference, created_by, created_at, updated_at, deleted_at FROM words
 WHERE id = $1 AND deleted_at IS NULL

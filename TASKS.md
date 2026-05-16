@@ -759,7 +759,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 6.1 — AIRequest Domain
 
-- [ ] **6.1.1 — Define `AIRequest` aggregate**
+- [x] **6.1.1 — Define `AIRequest` aggregate**
   - **Description:** Implement `internal/ai/domain/ai_request.go` with `AIRequest` struct (all fields from PRD §4.4). Domain methods: `NewAIRequest(type_, targetWordID, targetContributionID *string, requestedBy, model, prompt string) (*AIRequest, error)`, `MarkCompleted(response, parsedOutput JSON) error`, `MarkFailed(rawError JSON) error`, `Approve(reviewerID string) error`, `Reject(reviewerID string) error`.
   - **DoD:**
     - `Approve` on `quality_check` type → `ErrCannotApproveQualityCheck`
@@ -772,19 +772,19 @@ and the unit/integration tests required before implementation is considered comp
     - `TestAIRequest_RejectAlreadyRejected_Error`
     - `TestAIRequest_MarkCompleted_StateTransition`
 
-- [ ] **6.1.2 — Define `AIRequestRepository` interface**
+- [x] **6.1.2 — Define `AIRequestRepository` interface**
   - **Description:** Interface with: `Create`, `FindByID`, `FindAll(ctx, filter, page, perPage)`, `Update`.
 
 ---
 
 ### 6.2 — AI Enrichment Infrastructure
 
-- [ ] **6.2.1 — Migration: `ai_requests` table**
+- [x] **6.2.1 — Migration: `ai_requests` table**
   - **Description:** Write `migrations/000006_create_ai_requests.up.sql` creating `ai_requests` table with all fields from PRD §4.4. Index on `target_word_id`, `status`, `review_status`, `type`, `created_at`.
   - **DoD:**
     - Migration applies and reverts cleanly
 
-- [ ] **6.2.2 — sqlc: generate AI request queries**
+- [x] **6.2.2 — sqlc: generate AI request queries**
   - **Description:** Queries: `CreateAIRequest`, `GetAIRequestByID`, `ListAIRequests` (filter by type/status/review_status + pagination), `UpdateAIRequest`. Implement `PostgresAIRequestRepository`.
   - **Tests (integration):**
     - `TestCreateAndFindAIRequest`
@@ -794,7 +794,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 6.3 — AI Enrichment Application
 
-- [ ] **6.3.1 — `TriggerEnrichment` commands (enrich, example, related)**
+- [x] **6.3.1 — `TriggerEnrichment` commands (enrich, example, related)**
   - **Description:** Implement three commands sharing the same pattern — `TriggerDefinitionEnrichment(ctx, adminID, wordID string) (*AIRequest, error)`, `TriggerExampleSuggestion(...)`, `TriggerRelatedWordSuggestion(...)`. Each: loads the word, builds a context-specific prompt including the word, its existing definitions, and Banjar dialect context, creates `AIRequest` with `status: pending`, calls `LLMClient.Complete` (potentially async — return pending request immediately, complete in goroutine), updates `AIRequest` with response or failure.
   - **DoD:**
     - Word not found → `NOT_FOUND`, no `AIRequest` created
@@ -807,7 +807,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestTriggerEnrichment_LLMFails_StatusFailed`
     - `TestTriggerEnrichment_LLMSucceeds_StatusCompleted`
 
-- [ ] **6.3.2 — `TriggerQualityCheck` command**
+- [x] **6.3.2 — `TriggerQualityCheck` command**
   - **Description:** `TriggerQualityCheck(ctx, adminID, contributionID string) (*AIRequest, error)`. Loads contribution payload, builds a quality-check prompt asking the model to evaluate accuracy, consistency with BBDH vocabulary, and flag issues. Stores result in `AIRequest`. No approval flow — purely advisory.
   - **DoD:**
     - Contribution not found → `NOT_FOUND`
@@ -816,7 +816,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestTriggerQualityCheck_ContributionNotFound`
     - `TestTriggerQualityCheck_StoresAdvisoryOutput`
 
-- [ ] **6.3.3 — `ApproveAIRequest` command**
+- [x] **6.3.3 — `ApproveAIRequest` command**
   - **Description:** `ApproveAIRequest(ctx, adminID, requestID string) (*AIRequest, error)`. Loads `AIRequest`, calls `aiRequest.Approve()`, merges `parsed_output` into the target word (adds definitions/examples/related_words with `source: ai_generated`), updates `AIRequest`, writes audit log.
   - **DoD:**
     - `quality_check` type → `CONFLICT` (cannot approve advisory requests)
@@ -828,7 +828,7 @@ and the unit/integration tests required before implementation is considered comp
     - `TestApproveAIRequest_AlreadyApproved_Conflict`
     - `TestApproveAIRequest_MergesOutput`
 
-- [ ] **6.3.4 — `RejectAIRequest` command**
+- [x] **6.3.4 — `RejectAIRequest` command**
   - **Description:** `RejectAIRequest(ctx, adminID, requestID string) (*AIRequest, error)`. Calls `aiRequest.Reject()`, updates DB, writes audit log.
   - **DoD:**
     - Already-rejected → `CONFLICT`
@@ -840,7 +840,7 @@ and the unit/integration tests required before implementation is considered comp
 
 ### 6.4 — AI Enrichment HTTP
 
-- [ ] **6.4.1 — Admin AI enrichment routes**
+- [x] **6.4.1 — Admin AI enrichment routes**
   - **Description:** Register all admin AI endpoints from OAS §5.7 under `/api/v2/admin/ai`. All require `RequireRole("admin")`. Apply rate limit: 50 req/hour per admin ID on trigger endpoints (`POST /admin/ai/enrich/:word_id`, `/example/:word_id`, `/related/:word_id`, `/check/:contribution_id`).
   - **DoD:**
     - All trigger endpoints return 202 immediately

@@ -444,6 +444,23 @@ func (ns NullWordStatus) Value() (driver.Value, error) {
 	return string(ns.WordStatus), nil
 }
 
+type AiRequest struct {
+	ID                   uuid.UUID             `db:"id" json:"id"`
+	Type                 string                `db:"type" json:"type"`
+	TargetWordID         uuid.NullUUID         `db:"target_word_id" json:"target_word_id"`
+	TargetContributionID uuid.NullUUID         `db:"target_contribution_id" json:"target_contribution_id"`
+	RequestedBy          uuid.UUID             `db:"requested_by" json:"requested_by"`
+	Model                string                `db:"model" json:"model"`
+	Prompt               string                `db:"prompt" json:"prompt"`
+	Response             pqtype.NullRawMessage `db:"response" json:"response"`
+	ParsedOutput         pqtype.NullRawMessage `db:"parsed_output" json:"parsed_output"`
+	Status               string                `db:"status" json:"status"`
+	ReviewStatus         string                `db:"review_status" json:"review_status"`
+	ReviewedBy           uuid.NullUUID         `db:"reviewed_by" json:"reviewed_by"`
+	ReviewedAt           sql.NullTime          `db:"reviewed_at" json:"reviewed_at"`
+	CreatedAt            time.Time             `db:"created_at" json:"created_at"`
+}
+
 type AuditLog struct {
 	ID         uuid.UUID             `db:"id" json:"id"`
 	ActorID    uuid.UUID             `db:"actor_id" json:"actor_id"`

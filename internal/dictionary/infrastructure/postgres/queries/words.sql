@@ -92,6 +92,11 @@ WHERE w.deleted_at IS NULL
   AND ($4::text = '' OR w.source::text = $4::text)
   AND ($5::text = '' OR w.status::text = $5::text);
 
+-- name: GetWordByBanjar :one
+SELECT * FROM words
+WHERE banjar = $1 AND deleted_at IS NULL
+LIMIT 1;
+
 -- name: UpsertWord :one
 INSERT INTO words (
     id, banjar, banjar_syllabified, dialect, word_class,

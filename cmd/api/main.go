@@ -16,6 +16,7 @@ import (
 
 	aicommands "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/application/commands"
 	aihttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/http"
+	aiinfra "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/infrastructure/postgres"
 	openrouterclient "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/infrastructure/openrouter"
 	communitycmd "github.com/iqbaleff214/kamus-banjar-api-2/internal/community/application/commands"
 	communityhttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/community/http"
@@ -132,7 +133,11 @@ func main() {
 		log.Fatalf("ai: %v", err)
 	}
 	aiSvc := aicommands.NewTranslateService(aiClient, cfg.OpenRouterModel)
-	aihttp.RegisterRoutes(app, aihttp.NewHandler(aiSvc), ratelimit.NewRedisCounter(redis))
+
+	aiRequestRepo := aiinfra.NewPostgresAIRequestRepository(pool)
+	enrichmentSvc := aicommands.NewEnrichmentService(aiRequestRepo, wordRepo, contribRepo, modRepo, aiClient, cfg.OpenRouterModel)
+	rlCounter := ratelimit.NewRedisCounter(redis)
+	aihttp.RegisterRoutes(app, aihttp.NewHandler(aiSvc), aihttp.NewAdminHandler(enrichmentSvc), rlCounter)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

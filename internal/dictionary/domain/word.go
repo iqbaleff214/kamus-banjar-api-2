@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -96,4 +97,13 @@ func (w *Word) SoftDelete() {
 // IsDeleted returns true if the word has been soft-deleted.
 func (w *Word) IsDeleted() bool {
 	return w.DeletedAt != nil
+}
+
+// AddRelatedWord appends a related word ID if not already present.
+func (w *Word) AddRelatedWord(id uuid.UUID) {
+	if slices.Contains(w.RelatedWords, id) {
+		return
+	}
+	w.RelatedWords = append(w.RelatedWords, id)
+	w.UpdatedAt = time.Now().UTC()
 }

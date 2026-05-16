@@ -51,6 +51,17 @@ func (r *PostgresWordRepository) FindByID(ctx context.Context, id uuid.UUID) (*d
 	return r.hydrate(ctx, row)
 }
 
+func (r *PostgresWordRepository) FindByBanjar(ctx context.Context, banjar string) (*domain.Word, error) {
+	row, err := r.queries.GetWordByBanjar(ctx, banjar)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrWordNotFound
+		}
+		return nil, err
+	}
+	return r.hydrate(ctx, row)
+}
+
 // ─── FindAll ──────────────────────────────────────────────────────────────────
 
 func (r *PostgresWordRepository) FindAll(ctx context.Context, filter domain.WordFilter, page, perPage int) ([]*domain.Word, int, error) {
