@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/httperr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/httperr"
 )
 
 func TestErrorResponseShape(t *testing.T) {

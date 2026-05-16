@@ -18,14 +18,14 @@ import (
 )
 
 type PostgresModerationRepository struct {
-	modQ      *q.Queries
+	modQ       *q.Queries
 	communityQ *communityq.Queries
 }
 
 func NewPostgresModerationRepository(pool *pgxpool.Pool) *PostgresModerationRepository {
 	db := stdlib.OpenDBFromPool(pool)
 	return &PostgresModerationRepository{
-		modQ:      q.New(db),
+		modQ:       q.New(db),
 		communityQ: communityq.New(db),
 	}
 }

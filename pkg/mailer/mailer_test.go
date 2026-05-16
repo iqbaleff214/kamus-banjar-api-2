@@ -3,9 +3,10 @@ package mailer_test
 import (
 	"testing"
 
-	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/mailer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/mailer"
 )
 
 func TestSendVerificationEmail_MockCapture(t *testing.T) {

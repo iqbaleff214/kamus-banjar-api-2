@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/application/commands"
-	"github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/application/commands"
+	"github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/domain"
 )
 
 // ─── in-memory fake ───────────────────────────────────────────────────────────

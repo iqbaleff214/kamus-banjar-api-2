@@ -3,9 +3,10 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/domain"
 )
 
 func TestNewUser_ValidInput(t *testing.T) {

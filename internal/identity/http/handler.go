@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/application/commands"
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/domain"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"

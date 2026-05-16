@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	aihttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/http"
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/application/commands"
 	aidomain "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/domain"
+	aihttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/http"
 	communitydomain "github.com/iqbaleff214/kamus-banjar-api-2/internal/community/domain"
 	dictdomain "github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/domain"
 	moderationdomain "github.com/iqbaleff214/kamus-banjar-api-2/internal/moderation/domain"
@@ -232,6 +232,84 @@ func TestRejectAIRequestHandler_200(t *testing.T) {
 
 	resp := doAdmin(t, app, http.MethodPatch, "/api/v2/admin/ai/requests/"+r.ID.String()+"/reject", adminTok(t))
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+// ─── SuggestExample tests ─────────────────────────────────────────────────────
+
+func TestSuggestExampleHandler_202(t *testing.T) {
+	word := newTestWord()
+	llm := &fakeLLM{response: &aidomain.CompletionResponse{Model: "m", Content: `{"banjar":"inya kada tahu","indonesian":"dia tidak tahu"}`}}
+	app := buildAdminApp(t, newFakeAIRepo(), newFakeWordAccessor(word), newFakeContribReader(), llm, &fixedCounter{})
+
+	resp := doAdmin(t, app, http.MethodPost, "/api/v2/admin/ai/example/"+word.ID.String(), adminTok(t))
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+}
+
+func TestSuggestExampleHandler_404_WordNotFound(t *testing.T) {
+	llm := &fakeLLM{}
+	app := buildAdminApp(t, newFakeAIRepo(), newFakeWordAccessor(), newFakeContribReader(), llm, &fixedCounter{})
+
+	resp := doAdmin(t, app, http.MethodPost, "/api/v2/admin/ai/example/"+uuid.New().String(), adminTok(t))
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestSuggestExampleHandler_403_NonAdmin(t *testing.T) {
+	word := newTestWord()
+	llm := &fakeLLM{}
+	app := buildAdminApp(t, newFakeAIRepo(), newFakeWordAccessor(word), newFakeContribReader(), llm, &fixedCounter{})
+
+	resp := doAdmin(t, app, http.MethodPost, "/api/v2/admin/ai/example/"+word.ID.String(), userTok(t))
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+// ─── SuggestRelated tests ─────────────────────────────────────────────────────
+
+func TestSuggestRelatedHandler_202(t *testing.T) {
+	word := newTestWord()
+	llm := &fakeLLM{response: &aidomain.CompletionResponse{Model: "m", Content: `{"related":["urang lain"]}`}}
+	app := buildAdminApp(t, newFakeAIRepo(), newFakeWordAccessor(word), newFakeContribReader(), llm, &fixedCounter{})
+
+	resp := doAdmin(t, app, http.MethodPost, "/api/v2/admin/ai/related/"+word.ID.String(), adminTok(t))
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+}
+
+func TestSuggestRelatedHandler_404_WordNotFound(t *testing.T) {
+	llm := &fakeLLM{}
+	app := buildAdminApp(t, newFakeAIRepo(), newFakeWordAccessor(), newFakeContribReader(), llm, &fixedCounter{})
+
+	resp := doAdmin(t, app, http.MethodPost, "/api/v2/admin/ai/related/"+uuid.New().String(), adminTok(t))
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+// ─── QualityCheck tests ───────────────────────────────────────────────────────
+
+func TestQualityCheckHandler_202(t *testing.T) {
+	contrib := &communitydomain.Contribution{
+		ID:   uuid.New(),
+		Type: communitydomain.ContributionTypeNewWord,
+	}
+	llm := &fakeLLM{response: &aidomain.CompletionResponse{Model: "m", Content: `{"score":85}`}}
+	app := buildAdminApp(t, newFakeAIRepo(), newFakeWordAccessor(), newFakeContribReader(contrib), llm, &fixedCounter{})
+
+	resp := doAdmin(t, app, http.MethodPost, "/api/v2/admin/ai/check/"+contrib.ID.String(), adminTok(t))
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+}
+
+func TestQualityCheckHandler_404_ContribNotFound(t *testing.T) {
+	llm := &fakeLLM{}
+	app := buildAdminApp(t, newFakeAIRepo(), newFakeWordAccessor(), newFakeContribReader(), llm, &fixedCounter{})
+
+	resp := doAdmin(t, app, http.MethodPost, "/api/v2/admin/ai/check/"+uuid.New().String(), adminTok(t))
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestQualityCheckHandler_403_NonAdmin(t *testing.T) {
+	contrib := &communitydomain.Contribution{ID: uuid.New(), Type: communitydomain.ContributionTypeNewWord}
+	llm := &fakeLLM{}
+	app := buildAdminApp(t, newFakeAIRepo(), newFakeWordAccessor(), newFakeContribReader(contrib), llm, &fixedCounter{})
+
+	resp := doAdmin(t, app, http.MethodPost, "/api/v2/admin/ai/check/"+contrib.ID.String(), userTok(t))
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 
 // ensure nearLimitCounter is available in this file's test scope

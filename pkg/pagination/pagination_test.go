@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/pagination"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/pagination"
 )
 
 // testParse builds a minimal Fiber app that calls pagination.Parse and

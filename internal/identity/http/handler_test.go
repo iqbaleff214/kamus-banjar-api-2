@@ -11,14 +11,15 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/application/commands"
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/domain"
 	identityhttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/http"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/mailer"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/ratelimit"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type noopCounter struct{}

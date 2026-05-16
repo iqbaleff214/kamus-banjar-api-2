@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/application/commands"
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/application/queries"
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/domain"

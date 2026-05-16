@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/httperr"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/httperr"
 )
 
 // Counter increments a named key and returns the new count.

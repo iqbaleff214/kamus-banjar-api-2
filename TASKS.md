@@ -957,11 +957,11 @@ and the unit/integration tests required before implementation is considered comp
 
 These apply across all phases and should be verified before each phase is considered complete:
 
-- [ ] All new routes have corresponding handler tests (HTTP layer)
-- [ ] All domain methods have unit tests with edge cases
-- [ ] All repository methods have integration tests against a real test DB
-- [ ] All 401/403/404/409/422/429 responses are tested explicitly
-- [ ] No plaintext secrets in code or committed `.env` files
-- [ ] `go vet ./...` and `golangci-lint run` pass with no new warnings
-- [ ] `sqlc generate` is re-run after any SQL query changes
-- [ ] `make migrate-up && make migrate-down` applies and reverts cleanly for every new migration
+- [x] All new routes have corresponding handler tests (HTTP layer)
+- [x] All domain methods have unit tests with edge cases
+- [x] All repository methods have integration tests against a real test DB
+- [x] All 401/403/404/409/422/429 responses are tested explicitly
+- [x] No plaintext secrets in code or committed `.env` files
+- [x] `go vet ./...` and `golangci-lint run` pass with no new warnings
+- [x] `sqlc generate` is re-run after any SQL query changes
+- [x] `make migrate-up && make migrate-down` applies and reverts cleanly for every new migration

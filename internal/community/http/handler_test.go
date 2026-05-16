@@ -399,3 +399,120 @@ func TestRateLimit_ContributionEndpoint(t *testing.T) {
 	}, userToken(t, "user"))
 	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
 }
+
+// ─── contribution list / get tests ───────────────────────────────────────────
+
+func TestListContributionsHandler_200(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	tok := userToken(t, "user")
+
+	// Seed one contribution
+	doJSON(t, app, http.MethodPost, "/api/v2/contributions", map[string]any{
+		"type":    "new_word",
+		"payload": map[string]any{"banjar": "banar"},
+	}, tok)
+
+	resp := doJSON(t, app, http.MethodGet, "/api/v2/contributions", nil, tok)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var body map[string]any
+	decodeBody(t, resp.Body, &body)
+	assert.Equal(t, true, body["success"])
+	assert.NotNil(t, body["data"])
+}
+
+func TestListContributions_401_NoToken(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	resp := doJSON(t, app, http.MethodGet, "/api/v2/contributions", nil, "")
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+func TestGetContributionHandler_200(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	tok := userToken(t, "user")
+
+	postResp := doJSON(t, app, http.MethodPost, "/api/v2/contributions", map[string]any{
+		"type":    "new_word",
+		"payload": map[string]any{"banjar": "inya"},
+	}, tok)
+	require.Equal(t, http.StatusCreated, postResp.StatusCode)
+	var postBody map[string]any
+	decodeBody(t, postResp.Body, &postBody)
+	id := postBody["data"].(map[string]any)["id"].(string)
+
+	resp := doJSON(t, app, http.MethodGet, "/api/v2/contributions/"+id, nil, tok)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestGetContributionHandler_404(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	resp := doJSON(t, app, http.MethodGet, "/api/v2/contributions/not-a-uuid", nil, userToken(t, "user"))
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+// ─── definition vote tests ────────────────────────────────────────────────────
+
+func TestCastDefinitionVoteHandler_201(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	defID := uuid.New()
+	resp := doJSON(t, app, http.MethodPost, fmt.Sprintf("/api/v2/definitions/%s/votes", defID), map[string]any{"value": "up"}, userToken(t, "user"))
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+}
+
+func TestRemoveDefinitionVoteHandler_404_NoneExists(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	defID := uuid.New()
+	resp := doJSON(t, app, http.MethodDelete, fmt.Sprintf("/api/v2/definitions/%s/votes", defID), nil, userToken(t, "user"))
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestDefinitionVote_401_NoToken(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	defID := uuid.New()
+	resp := doJSON(t, app, http.MethodPost, fmt.Sprintf("/api/v2/definitions/%s/votes", defID), map[string]any{"value": "up"}, "")
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+// ─── bookmark list / remove tests ────────────────────────────────────────────
+
+func TestListBookmarksHandler_200(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	tok := userToken(t, "user")
+
+	resp := doJSON(t, app, http.MethodGet, "/api/v2/bookmarks", nil, tok)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var body map[string]any
+	decodeBody(t, resp.Body, &body)
+	assert.Equal(t, true, body["success"])
+}
+
+func TestRemoveBookmarkHandler_204(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	tok := userToken(t, "user")
+	wordID := uuid.New()
+
+	addResp := doJSON(t, app, http.MethodPost, "/api/v2/bookmarks", map[string]any{"word_id": wordID.String()}, tok)
+	require.Equal(t, http.StatusCreated, addResp.StatusCode)
+
+	delResp := doJSON(t, app, http.MethodDelete, fmt.Sprintf("/api/v2/bookmarks/%s", wordID), nil, tok)
+	assert.Equal(t, http.StatusNoContent, delResp.StatusCode)
+}
+
+func TestRemoveBookmarkHandler_404_Missing(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	wordID := uuid.New()
+	resp := doJSON(t, app, http.MethodDelete, fmt.Sprintf("/api/v2/bookmarks/%s", wordID), nil, userToken(t, "user"))
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+// ─── comment list tests ───────────────────────────────────────────────────────
+
+func TestListCommentsHandler_200(t *testing.T) {
+	app := buildApp(t, &memCounter{}, true)
+	wordID := uuid.New()
+
+	resp := doJSON(t, app, http.MethodGet, fmt.Sprintf("/api/v2/words/%s/comments", wordID), nil, "")
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	var body map[string]any
+	decodeBody(t, resp.Body, &body)
+	assert.Equal(t, true, body["success"])
+}

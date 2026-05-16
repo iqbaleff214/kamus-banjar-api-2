@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/application/commands"
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/domain"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/httperr"

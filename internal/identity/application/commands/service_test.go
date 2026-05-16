@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/application/commands"
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/domain"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/mailer"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -22,7 +23,7 @@ func init() {
 // --- minimal in-memory fakes ---
 
 type fakeUserRepo struct {
-	users  map[string]*domain.User
+	users   map[string]*domain.User
 	byEmail map[string]*domain.User
 }
 

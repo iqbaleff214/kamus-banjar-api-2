@@ -160,13 +160,6 @@ func userToken(t *testing.T) string {
 	return "Bearer " + tok
 }
 
-func adminTokenWithID(t *testing.T, id uuid.UUID) string {
-	t.Helper()
-	tok, err := auth.GenerateAccessToken(id.String(), "admin")
-	require.NoError(t, err)
-	return "Bearer " + tok
-}
-
 func doJSON(t *testing.T, app *fiber.App, method, path string, body any, token string) *http.Response {
 	t.Helper()
 	var buf bytes.Buffer
@@ -278,4 +271,49 @@ func TestAdminEndpoints_403_NonAdmin(t *testing.T) {
 
 	resp := doJSON(t, app, http.MethodGet, "/api/v2/admin/moderation/stats", nil, userToken(t))
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestAdminEndpoints_401_NoToken(t *testing.T) {
+	app := buildApp(t, &fakeModerationRepo{}, newFakeContribWriter(), newFakeWordWriter(), newFakeUserWriter())
+
+	resp := doJSON(t, app, http.MethodGet, "/api/v2/admin/moderation/stats", nil, "")
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+// ─── GetUser / UnbanUser tests ────────────────────────────────────────────────
+
+func TestGetUserHandler_200(t *testing.T) {
+	target := newUser(identitydomain.RoleUser)
+	app := buildApp(t, &fakeModerationRepo{}, newFakeContribWriter(), newFakeWordWriter(), newFakeUserWriter(target))
+
+	resp := doJSON(t, app, http.MethodGet, "/api/v2/admin/users/"+target.ID.String(), nil, adminToken(t))
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var body map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&body)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, true, body["success"])
+}
+
+func TestGetUserHandler_404(t *testing.T) {
+	app := buildApp(t, &fakeModerationRepo{}, newFakeContribWriter(), newFakeWordWriter(), newFakeUserWriter())
+
+	resp := doJSON(t, app, http.MethodGet, "/api/v2/admin/users/"+uuid.New().String(), nil, adminToken(t))
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestGetUserHandler_404_InvalidID(t *testing.T) {
+	app := buildApp(t, &fakeModerationRepo{}, newFakeContribWriter(), newFakeWordWriter(), newFakeUserWriter())
+
+	resp := doJSON(t, app, http.MethodGet, "/api/v2/admin/users/not-a-uuid", nil, adminToken(t))
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestUnbanUserHandler_200(t *testing.T) {
+	target := newUser(identitydomain.RoleUser)
+	target.IsActive = false
+	app := buildApp(t, &fakeModerationRepo{}, newFakeContribWriter(), newFakeWordWriter(), newFakeUserWriter(target))
+
+	resp := doJSON(t, app, http.MethodPatch, "/api/v2/admin/users/"+target.ID.String()+"/unban", nil, adminToken(t))
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }

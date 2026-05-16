@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/iqbaleff214/kamus-banjar-api-2/internal/community/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iqbaleff214/kamus-banjar-api-2/internal/community/domain"
 )
 
 func TestNewComment_BodyTooLong(t *testing.T) {

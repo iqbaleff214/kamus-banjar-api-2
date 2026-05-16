@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/domain"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/mailer"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (

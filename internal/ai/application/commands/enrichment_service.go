@@ -230,6 +230,9 @@ func (s *EnrichmentService) mergeAIOutput(ctx context.Context, req *aidomain.AIR
 				word.AddRelatedWord(related.ID)
 			}
 		}
+
+	case aidomain.AIRequestTypeQualityCheck:
+		// quality_check results are informational only; no word mutation needed.
 	}
 
 	return s.wordRepo.Update(ctx, word)

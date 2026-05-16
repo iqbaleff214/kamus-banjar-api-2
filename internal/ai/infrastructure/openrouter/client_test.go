@@ -8,11 +8,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/domain"
 	"github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/infrastructure/openrouter"
 	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/config"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func validResponse() map[string]any {

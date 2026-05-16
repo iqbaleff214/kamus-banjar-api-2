@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	domain "github.com/iqbaleff214/kamus-banjar-api-2/internal/community/domain"
 )
 

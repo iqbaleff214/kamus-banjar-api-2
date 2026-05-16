@@ -12,13 +12,14 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	aihttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/http"
-	"github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/application/commands"
-	"github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/domain"
-	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"
-	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/ratelimit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/application/commands"
+	"github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/domain"
+	aihttp "github.com/iqbaleff214/kamus-banjar-api-2/internal/ai/http"
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/auth"
+	"github.com/iqbaleff214/kamus-banjar-api-2/pkg/ratelimit"
 )
 
 func init() {
