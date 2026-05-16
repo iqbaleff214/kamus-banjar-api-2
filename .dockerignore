@@ -1,0 +1,14 @@
+.git
+.gitignore
+.claude
+.references
+docs
+scripts/seed/seed_data.json
+tmp
+*.md
+*.yaml
+*.yml
+!docker-compose*.yml
+.env
+.env.*
+!.env.example

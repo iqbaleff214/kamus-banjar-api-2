@@ -1,0 +1,64 @@
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    env_file: .env
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - .:/app
+      - go-cache:/root/go/pkg/mod
+      - air-tmp:/app/tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-kamus_banjar}
+      POSTGRES_USER: ${DB_USER:-kamus}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-kamus} -d ${DB_NAME:-kamus_banjar}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: >
+      sh -c '
+        if [ -n "$$REDIS_PASS" ]; then
+          redis-server --requirepass "$$REDIS_PASS"
+        else
+          redis-server
+        fi
+      '
+    environment:
+      REDIS_PASS: ${REDIS_PASS:-}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  go-cache:
+  air-tmp:
