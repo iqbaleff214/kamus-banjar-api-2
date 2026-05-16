@@ -11,7 +11,7 @@
 
 ### 1.1 Product Summary
 
-Kamus Banjar API 2 is a RESTful API platform for the Banjar language dictionary (Dialek Hulu), digitized from the reference book *Kamus Bahasa Banjar Dialek Hulu*. It is a community-driven dictionary platform that supports public read access, authenticated user contributions, AI-assisted content enrichment via OpenRouter, and admin moderation tooling.
+Kamus Banjar API 2 is a RESTful API platform for the Banjar language dictionary (Dialek Hulu), digitized from the reference book *Kamus Bahasa Banjar Dialek Hulu-Indonesia, Edisi Pertama* (Balai Bahasa Banjarmasin, Departemen Pendidikan Nasional, 2008; ISBN 978-979-685-776-0). It is a community-driven dictionary platform that supports public read access, authenticated user contributions, AI-assisted content enrichment via OpenRouter, and admin moderation tooling.
 
 ### 1.2 Goals
 
@@ -21,7 +21,32 @@ Kamus Banjar API 2 is a RESTful API platform for the Banjar language dictionary 
 - Build a moderation layer to ensure data integrity and community health
 - Serve as an open-source, long-term reference infrastructure for the Banjar language
 
-### 1.3 Non-Goals
+### 1.3 Primary Data Source
+
+The canonical data source is:
+
+> **Kamus Bahasa Banjar Dialek Hulu-Indonesia**, Edisi Pertama  
+> Balai Bahasa Banjarmasin, Departemen Pendidikan Nasional, 2008  
+> ISBN: 978-979-685-776-0  
+> Authors: Musdalipah, Siti Akbari, Jandiah, Wandanie Rakhman, Muhammad Yamani, H. Dede Hidayatullah, Noor Hastiah
+
+**Dictionary characteristics (derived from source):**
+
+| Property | Value |
+|---|---|
+| Direction | Banjar Hulu → Indonesian |
+| Dialect | Banjar Dialek Hulu (BBDH) |
+| Letters covered | A B C D G H I J K L M N P R S T U W Y |
+| Letters absent from dialect | E F O Q V Z (mapped: E→I/A, F/V→P, O→U, Q→K, Z→S/J) |
+| Estimated root entries | ~2,200 |
+| Estimated total entries (incl. derived forms) | ~7,000 |
+| Word classes used | `n`, `v`, `a`, `adv`, `p`, `pb`, `ki` |
+| Entry types | Root words + derived forms (ba-, ma-, ka-, ta-, sa-, pa- prefixed) |
+| Example sentences | Banjar sentence + Indonesian translation |
+
+See [DICTIONARY_SPEC.md](DICTIONARY_SPEC.md) for detailed word class definitions, entry format spec, and seeder data notes.
+
+### 1.4 Non-Goals
 
 - Mobile or web frontend (API only)
 - Real-time features (WebSocket, live chat)
@@ -100,26 +125,43 @@ All domain logic, application services, and API handlers must be developed test-
 | Field | Type | Description |
 |---|---|---|
 | `id` | UUID | Primary identifier |
-| `banjar` | string | Banjar word (Dialek Hulu) |
-| `latin` | string | Latin script romanization |
-| `dialect` | enum | `hulu` \| `kuala` |
-| `word_class` | enum | Noun, verb, adjective, adverb, etc. |
+| `banjar` | string | Banjar word without syllable markers (e.g. `abah`) |
+| `banjar_syllabified` | string? | Syllabified form from source (e.g. `a.bah`) |
+| `dialect` | enum | `hulu` — only dialect in scope for v2 |
+| `word_class` | enum | See word class table below |
+| `homonym_number` | int | 1 for primary; 2, 3, ... for homonyms (e.g. `¹amar`, `²amar`) |
+| `is_root` | bool | True = root word; false = derived form (ba-, ma-, ka-, etc.) |
+| `root_word_id` | UUID? | Parent root word ID when `is_root = false` |
 | `definitions` | `Definition[]` | One or more definitions |
 | `examples` | `Example[]` | Usage example sentences |
-| `etymology` | string? | Origin or root word info |
 | `related_words` | UUID[] | References to related `Word` IDs |
 | `status` | enum | `active` \| `deprecated` |
-| `created_by` | UUID | Admin user who seeded/approved |
+| `source` | enum | `seeded` \| `contributed` \| `ai_generated` |
+| `source_reference` | string? | Citation (for seeded entries: book title/edition) |
+| `created_by` | UUID? | Admin user ID; null for system-seeded |
 | `created_at` | datetime | — |
 | `updated_at` | datetime | — |
+| `deleted_at` | datetime? | Soft delete |
+
+**Word Classes (from source dictionary, section 2.1)**
+
+| Abbreviation | Full Name | Description |
+|---|---|---|
+| `n` | nomina | Noun |
+| `v` | verba | Verb |
+| `a` | adjektiva | Adjective |
+| `adv` | adverbia | Adverb |
+| `p` | partikel | Particle / interjection |
+| `pb` | pribahasa | Proverb |
+| `ki` | kiasan | Figurative / idiomatic |
 
 **Value Object: `Definition`**
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | UUID | — |
-| `meaning` | string | Indonesian/Melayu meaning |
-| `register` | enum | `formal` \| `informal` \| `archaic` \| `slang` |
+| `meaning` | string | Indonesian meaning/translation |
+| `sort_order` | int | Order when word has multiple definitions (1, 2, ...) |
 | `source` | enum | `seeded` \| `contributed` \| `ai_generated` |
 | `upvotes` | int | Community upvote count |
 | `downvotes` | int | Community downvote count |
@@ -129,8 +171,8 @@ All domain logic, application services, and API handlers must be developed test-
 | Field | Type | Description |
 |---|---|---|
 | `id` | UUID | — |
-| `banjar_sentence` | string | Banjar example sentence |
-| `translation` | string | Indonesian translation |
+| `banjar_sentence` | string | Banjar example sentence (`--` in source = word itself) |
+| `indonesian_translation` | string | Indonesian translation |
 | `source` | enum | `seeded` \| `contributed` \| `ai_generated` |
 
 ### 4.2 Community Context
@@ -441,8 +483,9 @@ Triggered by admin only. Three use cases:
 - PostgreSQL 15+
 - UUID primary keys
 - Soft delete via `deleted_at` on mutable aggregates
-- Indexes on: `banjar`, `latin`, `status`, `contributor_id`, `created_at`
-- Full-text search index on `banjar`, `latin`, `meaning`
+- Indexes on: `banjar`, `dialect`, `word_class`, `status`, `is_root`, `root_word_id`, `created_at`
+- Full-text search index on `banjar`, `meaning` (Indonesian translation field)
+- Unique constraint: `(banjar, dialect, homonym_number, is_root, root_word_id)`
 
 ### 7.3 Authentication
 
@@ -463,9 +506,13 @@ Triggered by admin only. Three use cases:
 
 ### 7.5 Seeding
 
-- Initial dictionary data seeded from `.references/kamus-bahasa-banjar-dialek-hulu.pdf`
-- Seed script parses PDF and inserts words with `source: seeded` and `created_by: system`
-- Seeding is idempotent (upsert by `banjar` + `dialect`)
+- Initial dictionary data extracted from `docs/kamus-bahasa-banjar-dialek-hulu.pdf`
+- Extraction script: `scripts/seed/extract_dictionary.py` (requires `pdfminer.six`)
+- Produces `scripts/seed/seed_data.json` with ~2,200 root entries and ~5,000 total entries
+- Seeder inserts entries with `source: seeded`, `created_by: null` (system), `dialect: hulu`
+- Seeding is idempotent — upsert on `(banjar, dialect, homonym_number, root_word_id)`
+- PDF extraction has known OCR artefacts; human review of seed data recommended before first deploy
+- See [DICTIONARY_SPEC.md](DICTIONARY_SPEC.md) for entry format, word class definitions, and known extraction limitations
 
 ---
 
@@ -525,7 +572,7 @@ kamus-banjar-api-2/
 ├── migrations/
 ├── scripts/
 │   └── seed/           # PDF parsing + seed logic
-├── .references/
+├── docs/
 │   └── kamus-bahasa-banjar-dialek-hulu.pdf
 └── PRD.md
 ```
