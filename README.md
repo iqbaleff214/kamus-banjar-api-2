@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/iqbaleff214/kamus-banjar-api-2/actions/workflows/ci.yml/badge.svg)](https://github.com/iqbaleff214/kamus-banjar-api-2/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/iqbaleff214/kamus-banjar-api-2/graph/badge.svg)](https://codecov.io/gh/iqbaleff214/kamus-banjar-api-2)
-[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/iqbaleff214/kamus-banjar-api-2)
 
@@ -47,7 +47,7 @@ The project is built with [Domain-Driven Design (DDD)](https://martinfowler.com/
 
 | Layer | Technology |
 |---|---|
-| Language | Go 1.26 |
+| Language | Go 1.25 |
 | Framework | [Fiber v2](https://gofiber.io) |
 | Database | PostgreSQL 15+ |
 | Query Layer | [sqlc](https://sqlc.dev) |
@@ -58,6 +58,7 @@ The project is built with [Domain-Driven Design (DDD)](https://martinfowler.com/
 | Migrations | [golang-migrate](https://github.com/golang-migrate/migrate) |
 | Testing | [testify](https://github.com/stretchr/testify) |
 | Containerization | Docker + Docker Compose |
+| Reverse Proxy | [Traefik v3](https://traefik.io) (production) |
 
 ---
 
@@ -91,7 +92,7 @@ Each bounded context is structured as:
 ### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/)
-- [Go 1.26+](https://go.dev/dl/) (for local development without Docker)
+- [Go 1.25+](https://go.dev/dl/) (for local development without Docker)
 - [golang-migrate CLI](https://github.com/golang-migrate/migrate/tree/master/cmd/migrate) (for running migrations manually)
 
 ### 1. Clone the repository
@@ -116,8 +117,8 @@ docker compose up --build
 ```
 
 This starts:
-- **app** — Go API with hot-reload via [Air](https://github.com/air-verse/air) at `http://localhost:8080`
-- **postgres** — PostgreSQL 15 at `localhost:5432`
+- **api** — Go API with hot-reload via [Air](https://github.com/air-verse/air) at `http://localhost:3000`
+- **db** — PostgreSQL 15 at `localhost:5432`
 - **redis** — Redis 7 at `localhost:6379`
 
 ### 4. Run migrations
@@ -137,7 +138,7 @@ This imports ~7,000 Banjar entries from `scripts/seed/seed_data.json` into Postg
 ### Health check
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:3000/health
 # {"status":"ok"}
 ```
 
@@ -145,7 +146,7 @@ curl http://localhost:8080/health
 
 ## API Reference
 
-Base URL: `http://localhost:8080/api/v2`
+Base URL: `http://localhost:3000/api/v2`
 
 All responses follow a consistent envelope:
 
@@ -249,22 +250,23 @@ All configuration is via environment variables. Copy `.env.example` to `.env`:
 
 ```env
 # Application
-APP_PORT=8080
+APP_PORT=3000
 APP_ENV=development
+APP_DOMAIN=api.example.com       # Production domain (used by Traefik)
 
 # PostgreSQL
-DB_HOST=postgres
+DB_HOST=db
 DB_PORT=5432
 DB_NAME=kamus_banjar
-DB_USER=postgres
-DB_PASS=postgres
+DB_USER=kamus
+DB_PASS=secret
 
 # Redis
 REDIS_ADDR=redis:6379
 REDIS_PASS=
 
 # JWT — generate a strong random secret for production
-JWT_SECRET=change-me
+JWT_SECRET=change-me-in-production-min-32-chars
 
 # SMTP (leave empty to use mock mailer in development)
 SMTP_HOST=
@@ -287,7 +289,8 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 
 ```bash
 make run           # Start API with Air hot-reload
-make test          # Run all tests
+make test          # Run all tests (with race detector)
+make coverage      # Coverage report — enforces ≥80% on domain + application layers
 make migrate-up    # Apply all pending migrations
 make migrate-down  # Roll back last migration
 make seed          # Import seed data into PostgreSQL
@@ -298,7 +301,7 @@ make tidy          # go mod tidy
 ### Running tests
 
 ```bash
-go test ./... -count=1
+go test ./... -v -race -count=1
 ```
 
 Tests are organized by layer:
@@ -308,6 +311,15 @@ Tests are organized by layer:
 | Domain | `internal/*/domain/` | Pure unit — no I/O |
 | Application | `internal/*/application/` | Unit with in-memory fakes |
 | HTTP handlers | `internal/*/http/` | Integration via `app.Test()` |
+| Repository | `internal/*/infrastructure/postgres/` | Integration against real DB |
+
+**Integration tests** (repository layer) require a running PostgreSQL instance. Set `TEST_DATABASE_URL` before running:
+
+```bash
+TEST_DATABASE_URL=postgres://user:pass@localhost:5432/testdb go test ./...
+```
+
+Tests skip automatically when `TEST_DATABASE_URL` is not set — unit and handler tests always run.
 
 ### Code generation
 
@@ -335,20 +347,69 @@ kamus-banjar-api-2/
 │   ├── database/             # PostgreSQL connection pool
 │   ├── httperr/              # Error response helpers
 │   ├── mailer/               # SMTP + mock mailer
-│   └── pagination/           # Pagination utilities
+│   ├── middleware/           # Request ID, logging middleware
+│   ├── pagination/           # Pagination utilities
+│   └── ratelimit/            # Redis-backed rate limiter
 ├── migrations/               # golang-migrate SQL files
 ├── scripts/seed/             # Dictionary data extraction + import
 │   ├── extract_dictionary.py # PDF → seed_data.json (requires pdfminer.six)
 │   ├── seed_data.json        # Extracted Banjar dictionary entries
 │   └── main.go               # Go seeder (seed_data.json → PostgreSQL)
+├── testutil/                 # Shared test helpers (DB setup, isolated schemas)
+├── traefik/                  # Server-level Traefik reverse proxy (deploy once per server)
+│   ├── docker-compose.yml    # Traefik stack
+│   └── .env.example          # Traefik env vars
 ├── docs/                     # Reference PDF and specs
 ├── openapi.yaml              # OpenAPI 3.0 specification
 ├── DICTIONARY_SPEC.md        # Word class definitions, entry format, known caveats
 ├── PRD.md                    # Product Requirements Document
 ├── Dockerfile                # Multi-stage (dev / prod)
 ├── docker-compose.yml        # Development stack
-└── docker-compose.prod.yml   # Production stack
+└── docker-compose.prod.yml   # Production stack (Traefik-integrated)
 ```
+
+---
+
+## Production Deployment
+
+The production setup uses **Traefik v3** as a server-level reverse proxy handling TLS termination (Let's Encrypt) and HTTP→HTTPS redirects. Traefik is deployed once per server; each application joins the shared `traefik_public` network.
+
+### 1. Deploy Traefik (once per server)
+
+```bash
+cd traefik/
+cp .env.example .env
+# Fill in ACME_EMAIL, TRAEFIK_DOMAIN, and TRAEFIK_DASHBOARD_AUTH
+docker compose up -d
+```
+
+Generate `TRAEFIK_DASHBOARD_AUTH`:
+
+```bash
+docker run --rm httpd:alpine htpasswd -nB admin
+# Escape every $ as $$ in the .env value
+```
+
+### 2. Deploy the API
+
+```bash
+cp .env.example .env
+# Set APP_DOMAIN, DB_*, REDIS_*, JWT_SECRET, OPENROUTER_API_KEY, etc.
+docker compose -f docker-compose.prod.yml up -d
+make migrate-up
+make seed
+```
+
+The API is available at `https://<APP_DOMAIN>`. Traefik automatically provisions and renews a Let's Encrypt certificate.
+
+**Network topology:**
+
+```
+Internet → Traefik (:443) → [traefik_public] → api
+                                                 └── [internal] → db, redis
+```
+
+`db` and `redis` are on an isolated internal network — not reachable from outside the host.
 
 ---
 
@@ -358,11 +419,11 @@ kamus-banjar-api-2/
 |---|---|---|
 | Phase 1 — Scaffold & Identity | ✅ Done | Project setup, auth, email verification, JWT |
 | Phase 2 — Dictionary | ✅ Done | Schema, seed import, CRUD, full-text search, public API |
-| Phase 3 — AI Translation | 🔧 In progress | `POST /ai/translate`, OpenRouter, rate limiting |
-| Phase 4 — Community | Planned | Contributions, votes, bookmarks, comments |
-| Phase 5 — Moderation | Planned | Approval queue, user ban, audit log |
-| Phase 6 — AI Enrichment | Planned | Admin async enrichment jobs, review workflow |
-| Phase 7 — Hardening | Planned | Swagger UI, ≥80% coverage enforcement, observability |
+| Phase 3 — AI Translation | ✅ Done | `POST /ai/translate`, OpenRouter, rate limiting |
+| Phase 4 — Community | ✅ Done | Contributions, votes, bookmarks, comments |
+| Phase 5 — Moderation | ✅ Done | Approval queue, user ban, audit log |
+| Phase 6 — AI Enrichment | ✅ Done | Admin async enrichment jobs, review workflow |
+| Phase 7 — Hardening | ✅ Done | Swagger UI, ≥80% coverage enforcement, lint gates |
 
 ---
 
