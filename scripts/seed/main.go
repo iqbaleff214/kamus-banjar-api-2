@@ -1,5 +1,6 @@
 // Seeder reads scripts/seed/seed_data.json and upserts dictionary entries
-// into PostgreSQL. Safe to run multiple times (idempotent).
+// into PostgreSQL. Also upserts a default admin user. Safe to run multiple
+// times (idempotent).
 package main
 
 import (
@@ -9,14 +10,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 
-	q "github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/infrastructure/postgres/sqlc"
+	dictq "github.com/iqbaleff214/kamus-banjar-api-2/internal/dictionary/infrastructure/postgres/sqlc"
+	identityq "github.com/iqbaleff214/kamus-banjar-api-2/internal/identity/infrastructure/postgres/sqlc"
 )
 
 // ─── JSON seed schema ─────────────────────────────────────────────────────────
@@ -74,14 +78,18 @@ func main() {
 	defer pool.Close()
 
 	db := stdlib.OpenDBFromPool(pool)
-	queries := q.New(db)
+
+	if err := seedAdmin(ctx, identityq.New(db)); err != nil {
+		log.Fatalf("seed admin: %v", err)
+	}
 
 	data, err := loadSeedFile("scripts/seed/seed_data.json")
 	if err != nil {
 		log.Fatalf("load seed: %v", err)
 	}
 
-	log.Printf("Seeding %d root entries...", len(data.Entries))
+	queries := dictq.New(db)
+	log.Printf("Seeding %d entries...", len(data.Entries))
 	inserted, updated := 0, 0
 
 	for _, entry := range data.Entries {
@@ -96,7 +104,6 @@ func main() {
 			updated++
 		}
 
-		// Derived forms
 		for _, derived := range entry.DerivedForms {
 			_, wasNew2, err := upsertEntry(ctx, queries, derived, &rootID)
 			if err != nil {
@@ -114,15 +121,72 @@ func main() {
 	log.Printf("Done. inserted=%d updated=%d", inserted, updated)
 }
 
+// ─── admin user ───────────────────────────────────────────────────────────────
+
+func seedAdmin(ctx context.Context, queries *identityq.Queries) error {
+	email := getEnvOrDefault("ADMIN_EMAIL", "iqbaleff214@gmail.com")
+	password := getEnvOrDefault("ADMIN_PASSWORD", "Admin1234!")
+	name := getEnvOrDefault("ADMIN_NAME", "Admin")
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+
+	now := time.Now().UTC()
+	_, err = queries.CreateUser(ctx, identityq.CreateUserParams{
+		ID:           uuid.New(),
+		Name:         name,
+		Email:        email,
+		PasswordHash: string(hash),
+		Role:         identityq.UserRoleAdmin,
+		IsActive:     true,
+		EmailVerifiedAt: sql.NullTime{
+			Time:  now,
+			Valid: true,
+		},
+		CreatedAt: now,
+		UpdatedAt: now,
+	})
+	if err != nil {
+		// Ignore duplicate — admin already exists
+		if isUniqueViolation(err) {
+			log.Printf("admin user %q already exists, skipping", email)
+			return nil
+		}
+		return fmt.Errorf("create admin: %w", err)
+	}
+
+	log.Printf("admin user created: email=%s password=%s", email, password)
+	return nil
+}
+
+func isUniqueViolation(err error) bool {
+	return err != nil && (contains(err.Error(), "23505") || contains(err.Error(), "unique"))
+}
+
+func contains(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || len(s) > 0 && containsStr(s, sub))
+}
+
+func containsStr(s, sub string) bool {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}
+
 // ─── upsert logic ─────────────────────────────────────────────────────────────
 
-func upsertEntry(ctx context.Context, queries *q.Queries, entry seedEntry, rootID *uuid.UUID) (uuid.UUID, bool, error) {
+func upsertEntry(ctx context.Context, queries *dictq.Queries, entry seedEntry, rootID *uuid.UUID) (uuid.UUID, bool, error) {
 	wordClass, err := normalizeWordClass(entry.WordClass)
 	if err != nil {
 		return uuid.UUID{}, false, fmt.Errorf("unknown word class %q: %w", entry.WordClass, err)
 	}
 
-	dialect := q.Dialect("hulu")
+	dialect := dictq.Dialect("hulu")
 	homonym := int16(entry.HomonymNumber)
 	if homonym < 1 {
 		homonym = 1
@@ -148,7 +212,7 @@ func upsertEntry(ctx context.Context, queries *q.Queries, entry seedEntry, rootI
 	}
 
 	now := time.Now().UTC()
-	row, err := queries.UpsertWord(ctx, q.UpsertWordParams{
+	row, err := queries.UpsertWord(ctx, dictq.UpsertWordParams{
 		ID:                uuid.New(),
 		Banjar:            entry.Banjar,
 		BanjarSyllabified: syllabified,
@@ -157,8 +221,8 @@ func upsertEntry(ctx context.Context, queries *q.Queries, entry seedEntry, rootI
 		HomonymNumber:     homonym,
 		IsRoot:            isRoot,
 		RootWordID:        rootWordID,
-		Status:            q.WordStatusActive,
-		Source:            q.WordSourceSeeded,
+		Status:            dictq.WordStatusActive,
+		Source:            dictq.WordSourceSeeded,
 		SourceReference:   srcRef,
 		CreatedBy:         uuid.NullUUID{},
 		CreatedAt:         now,
@@ -170,18 +234,17 @@ func upsertEntry(ctx context.Context, queries *q.Queries, entry seedEntry, rootI
 
 	wasNew := row.CreatedAt.Equal(now) || row.UpdatedAt.Equal(now)
 
-	// Replace definitions
 	_ = queries.DeleteDefinitionsByWordID(ctx, row.ID)
 	for i, meaning := range entry.Definitions {
 		if meaning == "" {
 			continue
 		}
-		_, _ = queries.UpsertDefinition(ctx, q.UpsertDefinitionParams{
+		_, _ = queries.UpsertDefinition(ctx, dictq.UpsertDefinitionParams{
 			ID:        uuid.New(),
 			WordID:    row.ID,
 			Meaning:   meaning,
 			SortOrder: int16(i + 1),
-			Source:    q.WordSourceSeeded,
+			Source:    dictq.WordSourceSeeded,
 			Upvotes:   0,
 			Downvotes: 0,
 			CreatedAt: now,
@@ -189,18 +252,17 @@ func upsertEntry(ctx context.Context, queries *q.Queries, entry seedEntry, rootI
 		})
 	}
 
-	// Replace examples
 	_ = queries.DeleteExamplesByWordID(ctx, row.ID)
 	for _, ex := range entry.Examples {
 		if ex.Banjar == "" {
 			continue
 		}
-		_, _ = queries.UpsertExample(ctx, q.UpsertExampleParams{
+		_, _ = queries.UpsertExample(ctx, dictq.UpsertExampleParams{
 			ID:                    uuid.New(),
 			WordID:                row.ID,
 			BanjarSentence:        ex.Banjar,
 			IndonesianTranslation: ex.Indonesian,
-			Source:                q.WordSourceSeeded,
+			Source:                dictq.WordSourceSeeded,
 			CreatedAt:             now,
 			UpdatedAt:             now,
 		})
@@ -211,25 +273,33 @@ func upsertEntry(ctx context.Context, queries *q.Queries, entry seedEntry, rootI
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-func normalizeWordClass(s string) (q.WordClass, error) {
+func normalizeWordClass(s string) (dictq.WordClass, error) {
 	switch s {
 	case "n":
-		return q.WordClassN, nil
+		return dictq.WordClassN, nil
 	case "v":
-		return q.WordClassV, nil
+		return dictq.WordClassV, nil
 	case "a":
-		return q.WordClassA, nil
+		return dictq.WordClassA, nil
 	case "adv":
-		return q.WordClassAdv, nil
+		return dictq.WordClassAdv, nil
 	case "p":
-		return q.WordClassP, nil
+		return dictq.WordClassP, nil
 	case "pb":
-		return q.WordClassPb, nil
+		return dictq.WordClassPb, nil
 	case "ki":
-		return q.WordClassKi, nil
+		return dictq.WordClassKi, nil
+	case "num":
+		return dictq.WordClassNum, nil
+	case "pron":
+		return dictq.WordClassPron, nil
 	default:
-		// Map numeralia/pronomina to closest equivalent for seed data
-		return q.WordClassN, fmt.Errorf("unknown")
+		// Strip OCR artifacts (e.g. "n`") and retry
+		cleaned := strings.TrimRight(s, "`'\"")
+		if cleaned != s {
+			return normalizeWordClass(cleaned)
+		}
+		return dictq.WordClassN, fmt.Errorf("unknown")
 	}
 }
 
@@ -249,4 +319,11 @@ func mustEnv(key string) string {
 		log.Fatalf("missing env var: %s", key)
 	}
 	return v
+}
+
+func getEnvOrDefault(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }
