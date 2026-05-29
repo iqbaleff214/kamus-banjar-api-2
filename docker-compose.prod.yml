@@ -75,14 +75,7 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test: >
-        CMD-SHELL sh -c '
-          if [ -n "$$REDIS_PASS" ]; then
-            redis-cli -a "$$REDIS_PASS" ping
-          else
-            redis-cli ping
-          fi
-        '
+      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASS}\" ping 2>/dev/null | grep -q PONG || redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 10
