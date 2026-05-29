@@ -299,15 +299,46 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 
 ### Makefile targets
 
+**Local dev (Docker Compose)**
+
 ```bash
-make run           # Start API with Air hot-reload
-make test          # Run all tests (with race detector)
-make coverage      # Coverage report — enforces ≥80% on domain + application layers
-make migrate-up    # Apply all pending migrations
+make run           # docker compose up --build (foreground)
+make up            # docker compose up -d --build (detached)
+make down          # docker compose down
+make logs          # Follow compose logs
+make ps            # Show running services
+```
+
+**Migrations**
+
+```bash
+make migrate-up    # Run all pending migrations (via migrate container)
 make migrate-down  # Roll back last migration
-make seed          # Import seed data into PostgreSQL
+```
+
+**Seeder** (requires running DB, uses host Go)
+
+```bash
+make seed          # Seed dictionary data + default admin user
+```
+
+**Tests / quality**
+
+```bash
+make test          # Run all tests (race detector enabled)
+make coverage      # Coverage report — enforces ≥80% on domain + application layers
 make lint          # Run golangci-lint
 make tidy          # go mod tidy
+```
+
+**Production**
+
+```bash
+make prod-up       # docker compose -f docker-compose.prod.yml up -d --build
+make prod-down     # docker compose -f docker-compose.prod.yml down
+make prod-logs     # Follow prod logs
+make prod-ps       # Show prod services
+make prod-seed     # Run seeder container in production
 ```
 
 ### Running tests

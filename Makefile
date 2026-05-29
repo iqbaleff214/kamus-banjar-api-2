@@ -1,15 +1,47 @@
 MODULE  := github.com/iqbaleff214/kamus-banjar-api-2
-BINARY  := ./tmp/main
-MIGRATE := $(shell which migrate 2>/dev/null || echo "docker compose run --rm migrate")
 DB_URL  ?= postgres://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
 
 include .env
 export
 
-.PHONY: run test migrate-up migrate-down seed lint tidy coverage
+.PHONY: \
+	run up down logs ps \
+	migrate-up migrate-down \
+	seed \
+	test coverage lint tidy \
+	prod-up prod-down prod-logs prod-ps prod-seed
+
+# ─── Local dev (Docker Compose) ───────────────────────────────────────────────
 
 run:
-	air -c .air.toml
+	docker compose up --build
+
+up:
+	docker compose up -d --build
+
+down:
+	docker compose down
+
+logs:
+	docker compose logs -f
+
+ps:
+	docker compose ps
+
+# ─── Migrations ───────────────────────────────────────────────────────────────
+
+migrate-up:
+	docker compose run --rm migrate
+
+migrate-down:
+	docker compose run --rm migrate down 1
+
+# ─── Seeder ───────────────────────────────────────────────────────────────────
+
+seed:
+	go run scripts/seed/main.go
+
+# ─── Tests / quality ──────────────────────────────────────────────────────────
 
 test:
 	go test ./... -v -race -count=1
@@ -24,17 +56,25 @@ coverage:
 		if (pct < 80) { printf "FAIL: %s has %.1f%% < 80%%\n", $$1, pct; fail=1 } \
 	} END { if (fail) exit 1 }' coverage.out && echo "Coverage gate PASSED (>=80%% on domain+application)"
 
-migrate-up:
-	migrate -path migrations -database "$(DB_URL)" up
-
-migrate-down:
-	migrate -path migrations -database "$(DB_URL)" down
-
-seed:
-	go run scripts/seed/main.go
-
 lint:
 	golangci-lint run ./...
 
 tidy:
 	go mod tidy
+
+# ─── Production ───────────────────────────────────────────────────────────────
+
+prod-up:
+	docker compose -f docker-compose.prod.yml up -d --build
+
+prod-down:
+	docker compose -f docker-compose.prod.yml down
+
+prod-logs:
+	docker compose -f docker-compose.prod.yml logs -f
+
+prod-ps:
+	docker compose -f docker-compose.prod.yml ps
+
+prod-seed:
+	docker compose -f docker-compose.prod.yml --profile seed run --rm seed
