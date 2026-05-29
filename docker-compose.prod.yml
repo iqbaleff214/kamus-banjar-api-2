@@ -35,13 +35,13 @@ services:
       - "traefik.docker.network=traefik_public"
 
       # ── Router ───────────────────────────────────────────────────────────────
-      - "traefik.http.routers.kamus-banjar-api.rule=Host(`${APP_DOMAIN}`)"
-      - "traefik.http.routers.kamus-banjar-api.entrypoints=websecure"
-      - "traefik.http.routers.kamus-banjar-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.kamus-banjar-api.middlewares=security-headers@docker"
+      - "traefik.http.routers.kamus-banjar-2-api.rule=Host(`${APP_DOMAIN}`)"
+      - "traefik.http.routers.kamus-banjar-2-api.entrypoints=websecure"
+      - "traefik.http.routers.kamus-banjar-2-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.kamus-banjar-2-api.middlewares=security-headers@docker"
 
       # ── Service (internal port) ───────────────────────────────────────────────
-      - "traefik.http.services.kamus-banjar-api.loadbalancer.server.port=3000"
+      - "traefik.http.services.kamus-banjar-2-api.loadbalancer.server.port=3000"
 
   db:
     image: postgres:15-alpine
