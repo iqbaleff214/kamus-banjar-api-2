@@ -315,13 +315,15 @@ func (ns NullVoteValue) Value() (driver.Value, error) {
 type WordClass string
 
 const (
-	WordClassN   WordClass = "n"
-	WordClassV   WordClass = "v"
-	WordClassA   WordClass = "a"
-	WordClassAdv WordClass = "adv"
-	WordClassP   WordClass = "p"
-	WordClassPb  WordClass = "pb"
-	WordClassKi  WordClass = "ki"
+	WordClassN    WordClass = "n"
+	WordClassV    WordClass = "v"
+	WordClassA    WordClass = "a"
+	WordClassAdv  WordClass = "adv"
+	WordClassP    WordClass = "p"
+	WordClassPb   WordClass = "pb"
+	WordClassKi   WordClass = "ki"
+	WordClassNum  WordClass = "num"
+	WordClassPron WordClass = "pron"
 )
 
 func (e *WordClass) Scan(src interface{}) error {

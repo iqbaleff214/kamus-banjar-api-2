@@ -1,0 +1,3 @@
+-- PostgreSQL does not support removing enum values directly.
+-- To fully revert: recreate the type without 'num'/'pron' and update the column.
+-- For most rollback scenarios, leaving the unused values in place is acceptable.

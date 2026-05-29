@@ -1,0 +1,2 @@
+ALTER TYPE word_class ADD VALUE IF NOT EXISTS 'num';
+ALTER TYPE word_class ADD VALUE IF NOT EXISTS 'pron';

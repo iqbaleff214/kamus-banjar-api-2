@@ -11,6 +11,8 @@ const (
 	WordClassPartikel  WordClass = "p"
 	WordClassPribahasa WordClass = "pb"
 	WordClassKiasan    WordClass = "ki"
+	WordClassNumeralia WordClass = "num"
+	WordClassPronomina WordClass = "pron"
 )
 
 var validWordClasses = map[WordClass]struct{}{
@@ -21,6 +23,8 @@ var validWordClasses = map[WordClass]struct{}{
 	WordClassPartikel:  {},
 	WordClassPribahasa: {},
 	WordClassKiasan:    {},
+	WordClassNumeralia: {},
+	WordClassPronomina: {},
 }
 
 func (wc WordClass) Validate() error {

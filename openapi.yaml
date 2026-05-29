@@ -136,7 +136,7 @@ components:
 
     WordClass:
       type: string
-      enum: [n, v, a, adv, p, pb, ki]
+      enum: [n, v, a, adv, p, pb, ki, num, pron]
       description: |
         Word class abbreviation (from source dictionary section 2.1):
         - `n` nomina (noun)
@@ -146,6 +146,8 @@ components:
         - `p` partikel (particle/interjection)
         - `pb` pribahasa (proverb)
         - `ki` kiasan (figurative/idiomatic)
+        - `num` numeralia (numeral)
+        - `pron` pronomina (pronoun)
 
     Dialect:
       type: string
