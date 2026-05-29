@@ -14,6 +14,22 @@ services:
     networks:
       - internal
 
+  seed:
+    build:
+      context: .
+      target: seeder
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+    profiles:
+      - seed
+    networks:
+      - internal
+
   api:
     build:
       context: .
