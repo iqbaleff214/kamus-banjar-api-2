@@ -133,7 +133,19 @@ make migrate-up
 make seed
 ```
 
-This imports ~7,000 Banjar entries from `scripts/seed/seed_data.json` into PostgreSQL. The seeder is idempotent — safe to run multiple times.
+This imports ~7,000 Banjar entries from `scripts/seed/seed_data.json` into PostgreSQL and creates a default admin user. The seeder is idempotent — safe to run multiple times.
+
+Default admin credentials (override via env vars):
+
+| Env var | Default |
+|---|---|
+| `ADMIN_EMAIL` | `admin@kamus-banjar.id` |
+| `ADMIN_PASSWORD` | `Admin1234!` |
+| `ADMIN_NAME` | `Admin` |
+
+```bash
+ADMIN_EMAIL=me@example.com ADMIN_PASSWORD=StrongPass1! make seed
+```
 
 ### Health check
 
@@ -396,8 +408,23 @@ docker run --rm httpd:alpine htpasswd -nB admin
 cp .env.example .env
 # Set APP_DOMAIN, DB_*, REDIS_*, JWT_SECRET, OPENROUTER_API_KEY, etc.
 docker compose -f docker-compose.prod.yml up -d
-make migrate-up
-make seed
+```
+
+Migrations run automatically on startup via the `migrate` service.
+
+### 3. Seed the dictionary data
+
+```bash
+docker compose -f docker-compose.prod.yml --profile seed run --rm seed
+```
+
+This imports ~7,000 dictionary entries and creates a default admin user. Idempotent — safe to re-run.
+
+Override admin credentials:
+
+```bash
+ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=StrongPass1! \
+  docker compose -f docker-compose.prod.yml --profile seed run --rm seed
 ```
 
 The API is available at `https://<APP_DOMAIN>`. Traefik automatically provisions and renews a Let's Encrypt certificate.
