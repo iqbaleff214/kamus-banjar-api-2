@@ -3,7 +3,6 @@
 .claude
 .references
 docs
-scripts/seed/seed_data.json
 tmp
 *.md
 *.yaml
