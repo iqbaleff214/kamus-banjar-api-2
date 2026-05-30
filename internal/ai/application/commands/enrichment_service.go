@@ -158,6 +158,14 @@ func (s *EnrichmentService) RejectAIRequest(ctx context.Context, adminID, reques
 	return req, nil
 }
 
+func (s *EnrichmentService) GetAIRequest(ctx context.Context, requestID uuid.UUID) (*aidomain.AIRequest, error) {
+	req, err := s.aiRepo.FindByID(ctx, requestID)
+	if err != nil {
+		return nil, ErrAIRequestNotFound
+	}
+	return req, nil
+}
+
 func (s *EnrichmentService) ListByWord(ctx context.Context, wordID uuid.UUID, page, perPage int) ([]*aidomain.AIRequest, int, error) {
 	return s.aiRepo.ListByWord(ctx, wordID, page, perPage)
 }

@@ -100,6 +100,18 @@ func (h *AdminHandler) ListAIRequests(c *fiber.Ctx) error {
 	})
 }
 
+func (h *AdminHandler) GetAIRequest(c *fiber.Ctx) error {
+	reqID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return httperr.Send(c, fiber.StatusBadRequest, httperr.Validation("invalid request id"))
+	}
+	req, svcErr := h.svc.GetAIRequest(c.Context(), reqID)
+	if svcErr != nil {
+		return mapEnrichmentError(c, svcErr)
+	}
+	return httperr.OK(c, toAIRequestResponse(req))
+}
+
 func (h *AdminHandler) ApproveAIRequest(c *fiber.Ctx) error {
 	adminID, err := adminUUID(c)
 	if err != nil {

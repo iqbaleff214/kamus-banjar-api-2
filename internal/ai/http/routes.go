@@ -40,6 +40,7 @@ func RegisterRoutes(app *fiber.App, h *Handler, ah *AdminHandler, counter rateli
 	adminAI.Post("/check/:contribution_id", triggerLimiter, ah.QualityCheck)
 
 	adminAI.Get("/requests", ah.ListAIRequests)
+	adminAI.Get("/requests/:id", ah.GetAIRequest)
 	adminAI.Patch("/requests/:id/approve", ah.ApproveAIRequest)
 	adminAI.Patch("/requests/:id/reject", ah.RejectAIRequest)
 }
