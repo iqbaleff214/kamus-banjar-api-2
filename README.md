@@ -212,9 +212,9 @@ Errors:
 | `POST` | `/auth/verify-email` | Verify email with token |
 | `POST` | `/auth/forgot-password` | Send password reset email |
 | `POST` | `/auth/reset-password` | Reset password with token |
-| `GET` | `/me` | Get current user profile |
-| `PATCH` | `/me` | Update profile |
-| `PATCH` | `/me/password` | Change password |
+| `GET` | `/auth/me` | Get current user profile |
+| `PUT` | `/auth/me` | Update profile |
+| `PUT` | `/auth/me/password` | Change password |
 
 ### AI Translation (Auth Required)
 

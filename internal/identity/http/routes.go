@@ -25,7 +25,7 @@ func RegisterRoutes(app *fiber.App, h *Handler, counter ratelimit.Counter) {
 	a.Post("/forgot-password", h.ForgotPassword)
 	a.Post("/reset-password", h.ResetPassword)
 
-	me := v2.Group("/me", auth.RequireAuth())
+	me := a.Group("/me", auth.RequireAuth())
 	me.Get("/", h.Me)
 	me.Put("/", h.UpdateProfile)
 	me.Put("/password", h.ChangePassword)
