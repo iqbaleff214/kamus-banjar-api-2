@@ -290,7 +290,7 @@ func TestResetPasswordHandler_204(t *testing.T) {
 
 func TestMeHandler_RequiresAuth(t *testing.T) {
 	app, _ := newApp()
-	status, _ := doRequest(app, "GET", "/api/v2/me/", nil, "")
+	status, _ := doRequest(app, "GET", "/api/v2/auth/me/", nil, "")
 	assert.Equal(t, 401, status)
 }
 
@@ -305,7 +305,7 @@ func TestUpdateProfileHandler_200(t *testing.T) {
 	}, "")
 	accessToken := loginBody["data"].(map[string]any)["access_token"].(string)
 
-	status, body := doRequest(app, "PUT", "/api/v2/me/", map[string]any{"name": "Alice Updated"}, accessToken)
+	status, body := doRequest(app, "PUT", "/api/v2/auth/me/", map[string]any{"name": "Alice Updated"}, accessToken)
 	require.Equal(t, 200, status)
 	data := body["data"].(map[string]any)
 	assert.Equal(t, "Alice Updated", data["name"])
@@ -322,7 +322,7 @@ func TestChangePasswordHandler_204(t *testing.T) {
 	}, "")
 	accessToken := loginBody["data"].(map[string]any)["access_token"].(string)
 
-	status, _ := doRequest(app, "PUT", "/api/v2/me/password", map[string]any{
+	status, _ := doRequest(app, "PUT", "/api/v2/auth/me/password", map[string]any{
 		"current_password": "password123", "new_password": "newpassword123",
 	}, accessToken)
 	assert.Equal(t, 204, status)
